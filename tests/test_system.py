@@ -275,3 +275,39 @@ def test_capture_accepts_camera_nul_padding_but_not_truncation(monkeypatch):
     monkeypatch.setattr(subprocess, "run", lambda *a, **k: subprocess.CompletedProcess(a, 0, jpeg()[:-2]))
     with pytest.raises(ValueError):
         capture(config)
+
+
+def load_deploy_script(name):
+    """deploy/ scripts are hyphenated commands, not importable module names."""
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parent.parent / "deploy" / f"{name}.py"
+    spec = importlib.util.spec_from_file_location(name.replace("-", "_"), path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_backup_rejects_object_keys_that_escape_the_directory():
+    safe_key = load_deploy_script("backup-cloud").safe_key
+    assert safe_key("home/6a5d940b.jpg") == "home/6a5d940b.jpg"
+    for key in ["/etc/passwd", "../../secrets/admin.key", "home/../../x.jpg", "home\\x.jpg", ""]:
+        with pytest.raises(ValueError):
+            safe_key(key)
+
+
+def test_restore_comparison_ignores_json_number_spelling():
+    normalise = load_deploy_script("restore-cloud").normalise
+    # D1 returns a whole REAL as an int; SQLite returns a float. Same row.
+    assert normalise([("home", 1789385121.0, 1)]) == normalise([("home", 1789385121, 1)])
+    assert normalise([("home", 1.5)]) != normalise([("home", 1.6)])
+
+
+def test_restore_refuses_to_overwrite_the_source_resources(tmp_path):
+    restore_cloud = load_deploy_script("restore-cloud")
+    manifest = {"database": "prod", "bucket": "prod-photos", "d1": {"bytes": 0, "sha256": ""}, "objects": []}
+    (tmp_path / "manifest.json").write_text(json.dumps(manifest))
+    (tmp_path / "d1.sql").write_bytes(b"")
+    for database_name, bucket in [("prod", "other"), ("other", "prod-photos")]:
+        with pytest.raises(ValueError, match="must differ"):
+            restore_cloud.restore(tmp_path, tmp_path, database_name, bucket, False)
