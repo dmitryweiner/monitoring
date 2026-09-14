@@ -5,7 +5,7 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-09-01",
   "workers_dev": true,
-  "vars": { "DEVICE_ID": "home", "ALLOWED_ORIGINS": "" },
+  "vars": { "DEVICE_ID": "home", "ALLOWED_ORIGINS": "https://dmitryweiner.github.io" },
   "d1_databases": [{
     "binding": "DB", "database_name": "home-monitoring-poc",
     "database_id": "822b4325-dcdb-4068-bbe7-36831634a0ca",
