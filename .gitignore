@@ -6,6 +6,10 @@ build/
 dist/
 .coverage
 secrets/
+# Copies of the mihomo VPN configuration: real servers, UUIDs and passwords.
+config.yaml
+mihomo/
+cache.db
 data/
 *.db
 *.db-*

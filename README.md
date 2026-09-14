@@ -7,6 +7,8 @@ Python-агент на SBC собирает температуру CPU и JPEG �
 фактическое состояние — [STATUS.md](STATUS.md).
 
 Инструкция передачи, карта файлов и оставшиеся задачи — [docs/HANDOFF.md](docs/HANDOFF.md).
+Ближайшая незавершённая работа — сетевой прогон по
+[docs/RUNBOOK-network.md](docs/RUNBOOK-network.md).
 
 Клиенты обязаны посылать собственный заголовок User-Agent: Cloudflare отклоняет
 строку `Python-urllib/*` на границе с `error code: 1010` ещё до запуска Worker.
