@@ -1,0 +1,20 @@
+[Unit]
+Description=Reverse SSH administrative channel
+Wants=network-online.target monitoring-route.service
+After=network-online.target monitoring-route.service
+
+[Service]
+User=monitor-tunnel
+Group=monitor-tunnel
+ExecStart=/usr/bin/ssh -F /etc/monitoring/tunnel.conf -NT monitoring-relay
+Restart=always
+RestartSec=10
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+RestrictAddressFamilies=AF_INET AF_UNIX
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

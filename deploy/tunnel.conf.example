@@ -1,0 +1,18 @@
+Host monitoring-relay
+    HostName REPLACE_WITH_NUMERIC_VPS_IPV4
+    User monitor-relay
+    Port 22
+    AddressFamily inet
+    IdentityFile /etc/monitoring/tunnel.key
+    IdentitiesOnly yes
+    UserKnownHostsFile /etc/monitoring/relay_known_hosts
+    StrictHostKeyChecking yes
+    BatchMode yes
+    ExitOnForwardFailure yes
+    ServerAliveInterval 20
+    ServerAliveCountMax 3
+    ConnectTimeout 15
+    RemoteForward 127.0.0.1:22022 127.0.0.1:22
+    ForwardAgent no
+    RequestTTY no
+    ProxyCommand none

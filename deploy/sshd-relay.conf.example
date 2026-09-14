@@ -1,0 +1,14 @@
+# VPS: /etc/ssh/sshd_config.d/60-monitor-relay.conf
+# Separate administrator account must still permit ProxyJump to 127.0.0.1:22022.
+Match User monitor-relay
+    AuthenticationMethods publickey
+    PasswordAuthentication no
+    KbdInteractiveAuthentication no
+    AllowTcpForwarding remote
+    PermitListen 127.0.0.1:22022
+    GatewayPorts no
+    AllowAgentForwarding no
+    X11Forwarding no
+    PermitTTY no
+    MaxSessions 0
+Match all

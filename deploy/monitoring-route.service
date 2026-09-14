@@ -1,0 +1,18 @@
+[Unit]
+Description=Direct administrative route outside mihomo
+After=network.target
+Before=monitoring-tunnel.service mihomo.service
+
+[Service]
+WorkingDirectory=/opt/monitoring
+EnvironmentFile=-/etc/monitoring/route.env
+ExecStart=/usr/bin/python3 -m monitoring.routing
+Restart=on-failure
+RestartSec=5
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,23 @@
+device_id = "home"
+server_url = "https://monitor.example.com"
+token_file = "/etc/monitoring/device.token"
+state_dir = "/var/lib/monitoring-agent"
+interval_seconds = 600
+
+[queue]
+max_age = 86400
+max_bytes = 536870912
+reserve_bytes = 1073741824
+
+[camera]
+enabled = true
+device = "/dev/v4l/by-id/usb-Web_Camera_Web_Camera_202512181-video-index0"
+size = "1280x720"
+input_format = "mjpeg"
+timeout_seconds = 30
+
+[[sources]]
+name = "cpu"
+[sources.fields.cpu_temperature_c]
+path = "/sys/class/thermal/thermal_zone0/temp"
+scale = 0.001

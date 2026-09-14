@@ -1,0 +1,17 @@
+.venv/
+__pycache__/
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+.coverage
+secrets/
+data/
+*.db
+*.db-*
+*.jpg
+*.env
+!*.env.example
+node_modules/
+.wrangler/
+.dev.vars

@@ -1,0 +1,13 @@
+[Unit]
+Description=Mihomo TUN with independent administrative access
+Wants=network-online.target monitoring-route.service
+After=network-online.target monitoring-route.service
+
+[Service]
+ExecStart=/usr/local/bin/mihomo -d /etc/mihomo
+Restart=on-failure
+RestartSec=5
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

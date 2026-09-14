@@ -1,0 +1,606 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Home monitoring API",
+    "version": "1.0.0",
+    "description": "HTTPS; Unix seconds UTC. observed_at — время измерения, received_at — приём. Фото 30 дней, измерения 90 дней. См. README.md."
+  },
+  "paths": {
+    "/healthz": {
+      "get": {
+        "summary": "Проверить Worker и D1",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        }
+      }
+    },
+    "/v1/latest": {
+      "get": {
+        "summary": "Последние значения каждого источника и last_seen",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        }
+      }
+    },
+    "/v1/measurements": {
+      "get": {
+        "summary": "История measurements",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Упорядочено по (observed_at,event_id). Ответ items и next_cursor. limit 1–1000; повторять те же фильтры при продолжении."
+      },
+      "post": {
+        "summary": "До 12 измерений (kind=measurement)",
+        "security": [
+          {
+            "device": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "events"
+                ],
+                "properties": {
+                  "events": {
+                    "type": "array",
+                    "minItems": 1,
+                    "maxItems": 12,
+                    "items": {
+                      "$ref": "#/components/schemas/Event"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "results содержит event_id и status для каждого события: stored/duplicate/expired/invalid/invalid_time/conflict. HTTP 200 не гарантирует приём всех элементов."
+      }
+    },
+    "/v1/photos": {
+      "get": {
+        "summary": "История photos",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "description": "Упорядочено по (observed_at,event_id). Ответ items и next_cursor. limit 1–1000; повторять те же фильтры при продолжении."
+      },
+      "post": {
+        "summary": "JPEG до 4 MiB",
+        "security": [
+          {
+            "device": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Event",
+            "in": "header",
+            "required": true,
+            "description": "JSON Event, kind=photo, status=ok.",
+            "schema": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "image/jpeg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "description": "Ответ: event_id, status (stored/duplicate/expired/invalid_time/conflict)."
+      }
+    },
+    "/v1/photos/{event_id}": {
+      "get": {
+        "summary": "Получить закрытый JPEG",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "JPEG, Cache-Control: no-store",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/session": {
+      "post": {
+        "summary": "Получить сессию на 7 дней",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "key"
+                ],
+                "properties": {
+                  "key": {
+                    "type": "string",
+                    "minLength": 32,
+                    "maxLength": 256,
+                    "writeOnly": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "description": "Ответ session_key и expires_at, устанавливается Secure/HttpOnly/SameSite=Strict cookie."
+      },
+      "delete": {
+        "summary": "Отозвать текущую сессию",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Сессия отозвана, cookie очищена."
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "description": "Для cookie обязательны разрешённый Origin и X-CSRF-Token: 1.",
+        "parameters": [
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "schema": {
+              "type": "string",
+              "const": "1"
+            }
+          }
+        ]
+      }
+    },
+    "/v1/measurements/aggregate": {
+      "get": {
+        "summary": "Агрегация числовой метрики",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации"
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After"
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже"
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "metric",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "bucket_seconds",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "description": "bucket_seconds: целое 600–86400, по умолчанию 3600, максимум 1000 интервалов. Ответ source,metric,bucket_seconds,items: bucket/count/mean/minimum/maximum. UTC, конец диапазона исключается."
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "device": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "Только загрузка."
+      },
+      "session": {
+        "type": "http",
+        "scheme": "bearer",
+        "description": "session_key из POST /v1/session."
+      },
+      "cookie": {
+        "type": "apiKey",
+        "in": "cookie",
+        "name": "monitor_session"
+      }
+    },
+    "schemas": {
+      "Event": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "device_id",
+          "event_id",
+          "observed_at",
+          "kind",
+          "source",
+          "status",
+          "values",
+          "clock_synchronized"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "number"
+          },
+          "kind": {
+            "enum": [
+              "measurement",
+              "photo"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "maxProperties": 32,
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "clock_synchronized": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

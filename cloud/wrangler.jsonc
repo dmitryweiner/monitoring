@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "home-monitoring-poc",
+  "account_id": "ecdb8df324a8713baec2d0b0ac88e49e",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-09-01",
+  "workers_dev": true,
+  "vars": { "DEVICE_ID": "home", "ALLOWED_ORIGINS": "" },
+  "d1_databases": [{
+    "binding": "DB", "database_name": "home-monitoring-poc",
+    "database_id": "822b4325-dcdb-4068-bbe7-36831634a0ca",
+    "migrations_dir": "migrations"
+  }],
+  "r2_buckets": [{ "binding": "PHOTOS", "bucket_name": "home-monitoring-poc-photos" }],
+  "triggers": { "crons": ["*/15 * * * *"] },
+  "ratelimits": [
+    { "name": "LOGIN_LIMIT", "namespace_id": "1001", "simple": { "limit": 10, "period": 60 } },
+    { "name": "API_LIMIT", "namespace_id": "1002", "simple": { "limit": 120, "period": 60 } }
+  ],
+  "observability": { "enabled": false }
+}

@@ -1,0 +1,9 @@
+[Unit]
+Description=Monitoring database and photo backup
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/monitoring
+EnvironmentFile=-/etc/monitoring/backup.env
+ExecStart=/bin/bash /opt/monitoring/deploy/backup.sh
+UMask=0077

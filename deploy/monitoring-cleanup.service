@@ -1,0 +1,14 @@
+[Unit]
+Description=Remove expired monitoring data
+
+[Service]
+Type=oneshot
+User=monitoring
+Group=monitoring
+WorkingDirectory=/opt/monitoring
+ExecStart=/opt/monitoring/.venv/bin/python -m monitoring.admin cleanup
+ProtectSystem=strict
+ReadWritePaths=/var/lib/monitoring-server
+ProtectHome=yes
+PrivateTmp=yes
+NoNewPrivileges=yes

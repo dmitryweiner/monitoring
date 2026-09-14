@@ -1,0 +1,20 @@
+{
+    servers {
+        timeouts {
+            read_body 45s
+            read_header 10s
+            idle 2m
+        }
+    }
+}
+
+monitor.example.com {
+    request_body {
+        max_size 4MB
+    }
+    reverse_proxy 127.0.0.1:8000
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Content-Type-Options nosniff
+    }
+}

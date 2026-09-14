@@ -1,0 +1,23 @@
+[Unit]
+Description=Home monitoring private API
+After=network.target
+
+[Service]
+User=monitoring
+Group=monitoring
+WorkingDirectory=/opt/monitoring
+EnvironmentFile=/etc/monitoring/server.env
+ExecStart=/opt/monitoring/.venv/bin/uvicorn monitoring.server:create_app --factory --host 127.0.0.1 --port 8000 --workers 1 --no-access-log --proxy-headers --forwarded-allow-ips=127.0.0.1
+Restart=on-failure
+RestartSec=5
+StateDirectory=monitoring-server
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+MemoryMax=512M
+TasksMax=64
+
+[Install]
+WantedBy=multi-user.target
