@@ -13,6 +13,10 @@ from urllib.parse import urlsplit
 from urllib.request import Request, build_opener, HTTPRedirectHandler
 
 
+# Cloudflare blocks the default urllib agent string at the edge (error 1010).
+USER_AGENT = "monitoring-check/1"
+
+
 class NoRedirect(HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         return None
@@ -27,7 +31,7 @@ def check(url, device_id, device_token, admin_key, photo):
     opener = build_opener(NoRedirect())
 
     def request(path, method='GET', token=None, payload=None, data=None, headers=None, expected=200):
-        headers = dict(headers or {})
+        headers = {'User-Agent': USER_AGENT, **(headers or {})}
         if token:
             headers['Authorization'] = 'Bearer ' + token
         if payload is not None:

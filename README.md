@@ -6,8 +6,10 @@ Python-агент на SBC собирает температуру CPU и JPEG �
 Веб-интерфейс не входит в этот этап. Требования — [PLAN.md](PLAN.md),
 фактическое состояние — [STATUS.md](STATUS.md).
 
-Разработка временно остановлена по просьбе владельца 2026-09-14 в 10:58 UTC.
 Инструкция передачи, карта файлов и оставшиеся задачи — [docs/HANDOFF.md](docs/HANDOFF.md).
+
+Клиенты обязаны посылать собственный заголовок User-Agent: Cloudflare отклоняет
+строку `Python-urllib/*` на границе с `error code: 1010` ещё до запуска Worker.
 
 ## Проверка
 
@@ -40,11 +42,13 @@ Wrangler на Orange Pi авторизован. Повторно создава�
 Ключи созданы в secrets/ с правами 0600, каталог исключён из Git:
 device.token, admin.key, server.env и worker.json. Последний содержит только хеши
 DEVICE_HASH/ADMIN_HASH; они уже загружены в Worker через stdin. Не генерировать
-новые ключи при продолжении. В /etc/monitoring/device.token токен ещё не установлен.
+новые ключи при продолжении. Тот же device.token установлен в /etc/monitoring
+на плате; агент с 14 сентября 11:15 UTC работает без --collect-only.
 
 TypeScript, 17 Python-тестов, 9 Miniflare и 9 portable-тестов прошли на ARM64.
-Полная облачная проверка ещё не пройдена: Python получил 403 на /healthz,
-последующий curl — 200. Причину необходимо выяснить. Для продолжения из корня:
+Сквозная проверка настоящего Worker пройдена 14 сентября: health, авторизация,
+загрузка измерения и JPEG, повтор без дубликатов, закрытое чтение, история, logout.
+Повторить её из корня можно так:
 
 ```sh
 python3 deploy/check-cloud.py \
@@ -54,9 +58,10 @@ python3 deploy/check-cloud.py \
 ```
 
 Скрипт при успешном запуске оставляет тестовое измерение и JPEG с source=acceptance.
-Ключи читает из файлов и не печатает. /tmp/monitoring-acceptance.jpg — подготовленный
-белый JPEG 32×24, временный и может исчезнуть при перезагрузке. Проверка остановилась
-до загрузок. Подробные результаты и следующий шаг — в STATUS.md.
+Ключи читает из файлов и не печатает. Подходит любой небольшой JPEG; белый снимок
+32×24 создаётся командой
+`ffmpeg -f lavfi -i color=c=white:s=32x24 -frames:v 1 out.jpg`.
+Подробные результаты и следующий шаг — в STATUS.md.
 
 ## SBC
 
@@ -84,10 +89,9 @@ sudo systemctl enable --now monitoring-agent
 sudo journalctl -u monitoring-agent --since '1 hour ago'
 ```
 
-До готовности облака установлен drop-in
-/etc/systemd/system/monitoring-agent.service.d/collect-only.conf с --collect-only.
-После настройки адреса и токена удалить именно этот drop-in, выполнить
-`systemctl daemon-reload` и `systemctl restart monitoring-agent`.
+Drop-in collect-only.conf снят 14 сентября: агент собирает и отправляет.
+Если отправку нужно снова приостановить, вернуть тот же drop-in с `--collect-only`,
+выполнить `systemctl daemon-reload` и `systemctl restart monitoring-agent`.
 Не запускать несколько агентов на одной очереди.
 
 Очередь ограничена сутками, 512 MiB полезных данных и резервом 1 GiB диска.

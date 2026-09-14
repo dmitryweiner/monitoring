@@ -19,6 +19,8 @@ from .common import canonical
 from .spool import Spool
 
 LOG = logging.getLogger(__name__)
+# Cloudflare blocks the default urllib agent string at the edge (error 1010).
+USER_AGENT = "monitoring-agent/1"
 
 
 def clock_synchronized():
@@ -98,7 +100,7 @@ class Uploader:
 
     def request(self, path, data, headers=None):
         req = urllib.request.Request(self.url + path, data=data, method="POST", headers={
-            "Authorization": "Bearer " + self.token, **(headers or {})})
+            "Authorization": "Bearer " + self.token, "User-Agent": USER_AGENT, **(headers or {})})
         with self.client.open(req, timeout=30) as response:
             return json.loads(response.read(65537))
 
