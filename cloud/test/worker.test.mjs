@@ -137,3 +137,28 @@ test('scheduled retention and orphan recovery are restartable',async()=>{
   assert.equal(await bucket.head('home/'+e.event_id+'.jpg'),null);
   assert.equal(await bucket.head('orphan.jpg'),null);
 });
+
+test('measurement daily and photo byte quotas preserve retries and recover',async()=>{
+  const m=event();
+  assert.equal((await (await upload(m)).json()).results[0].status,'stored');
+  const today=Math.floor(Date.now()/1000/day);
+  const daily=await db.prepare("SELECT count FROM daily WHERE day=? AND kind='measurement'").bind(today).first();
+  const usage=await db.prepare('SELECT photo_bytes FROM usage WHERE id=1').first();
+  try {
+    await db.prepare("UPDATE daily SET count=4096 WHERE day=? AND kind='measurement'").bind(today).run();
+    const rejected=event();
+    assert.equal((await upload(rejected)).status,429);
+    assert.equal(await db.prepare('SELECT id FROM events WHERE id=?').bind(rejected.event_id).first(),null);
+    assert.equal((await (await upload(m)).json()).results[0].status,'duplicate');
+    await db.prepare('UPDATE usage SET photo_bytes=6000000000 WHERE id=1').run();
+    const p=event('photo');
+    assert.equal((await uploadPhoto(p)).status,429);
+    assert.equal(await bucket.head('home/'+p.event_id+'.jpg'),null);
+    assert.equal(await db.prepare('SELECT id FROM events WHERE id=?').bind(p.event_id).first(),null);
+  } finally {
+    await db.prepare("UPDATE daily SET count=? WHERE day=? AND kind='measurement'").bind(daily.count,today).run();
+    await db.prepare('UPDATE usage SET photo_bytes=? WHERE id=1').bind(usage.photo_bytes).run();
+  }
+  assert.equal((await (await upload(event())).json()).results[0].status,'stored');
+  assert.equal((await (await uploadPhoto(event('photo'))).json()).status,'stored');
+});

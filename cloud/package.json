@@ -13,8 +13,8 @@
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20260911.1",
     "esbuild": "^0.25.0",
-    "miniflare": "5.20260907.0-alpha",
+    "miniflare": "5.20260911.1-alpha",
     "typescript": "^5.9.0",
-    "wrangler": "4.129.1"
+    "wrangler": "4.131.2"
   }
 }

@@ -6,7 +6,7 @@ Python-агент на SBC собирает температуру CPU и JPEG �
 Веб-интерфейс не входит в этот этап. Требования — [PLAN.md](PLAN.md),
 фактическое состояние — [STATUS.md](STATUS.md).
 
-Разработка приостановлена 2026-09-14 для продолжения на Orange Pi.
+Разработка временно остановлена по просьбе владельца 2026-09-14 в 10:58 UTC.
 Инструкция передачи, карта файлов и оставшиеся задачи — [docs/HANDOFF.md](docs/HANDOFF.md).
 
 ## Проверка
@@ -32,34 +32,31 @@ Miniflare или Cloudflare. Python-тесты пока используют с�
 
 ## Cloudflare
 
-Войти через `wrangler login`. В панели включить R2 и открыть Workers & Pages
-для создания workers.dev. Активация R2 и платёжных условий выполняется владельцем
-аккаунта; платный тариф Workers не назначается автоматически.
+Worker опубликован: https://home-monitoring-poc.dmitry-weiner.workers.dev.
+D1 home-monitoring-poc уже существует, миграции применены. R2 активирован владельцем,
+bucket home-monitoring-poc-photos создан в классе Standard без публичного доступа.
+Wrangler на Orange Pi авторизован. Повторно создавать ресурсы не нужно.
 
-Из cloud/, предварительно проверив отсутствие одноимённых ресурсов:
+Ключи созданы в secrets/ с правами 0600, каталог исключён из Git:
+device.token, admin.key, server.env и worker.json. Последний содержит только хеши
+DEVICE_HASH/ADMIN_HASH; они уже загружены в Worker через stdin. Не генерировать
+новые ключи при продолжении. В /etc/monitoring/device.token токен ещё не установлен.
+
+TypeScript, 17 Python-тестов, 9 Miniflare и 9 portable-тестов прошли на ARM64.
+Полная облачная проверка ещё не пройдена: Python получил 403 на /healthz,
+последующий curl — 200. Причину необходимо выяснить. Для продолжения из корня:
 
 ```sh
-wrangler d1 create home-monitoring-poc
-wrangler r2 bucket create home-monitoring-poc-photos
+python3 deploy/check-cloud.py \
+  --url https://home-monitoring-poc.dmitry-weiner.workers.dev \
+  --device-token secrets/device.token --admin-key secrets/admin.key \
+  --photo /path/to/non-sensitive.jpg
 ```
 
-В wrangler.jsonc записать полученный database_id. Bucket оставить закрытым,
-не включать публичный r2.dev. Затем применить миграции:
-
-```sh
-wrangler d1 migrations apply home-monitoring-poc --remote
-```
-
-Из корня проекта выполнить
-`python3 -m monitoring.admin credentials secrets --device-id home`.
-Команда создаёт device.token, admin.key и server.env с правами 0600,
-не печатает ключи и не заменяет существующие. server.env пока использует имена
-старого backend: значение MONITOR_DEVICE_HASH загрузить как secret DEVICE_HASH,
-MONITOR_ADMIN_HASH — как ADMIN_HASH. Использовать stdin Wrangler, не передавать
-секреты аргументами команд или в URL. На плату нужен только device.token.
-После загрузки secrets выполнить `wrangler deploy` и проверить API.
-
-Развёртывание не завершено, пока его результаты не зафиксированы в STATUS.md.
+Скрипт при успешном запуске оставляет тестовое измерение и JPEG с source=acceptance.
+Ключи читает из файлов и не печатает. /tmp/monitoring-acceptance.jpg — подготовленный
+белый JPEG 32×24, временный и может исчезнуть при перезагрузке. Проверка остановилась
+до загрузок. Подробные результаты и следующий шаг — в STATUS.md.
 
 ## SBC
 

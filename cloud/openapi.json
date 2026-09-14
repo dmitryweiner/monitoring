@@ -16,19 +16,39 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Health"
                 }
               }
             }
           },
-          "401": {
-            "description": "Нет действующей авторизации"
-          },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -50,19 +70,49 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Latest"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -84,19 +134,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Page"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -118,21 +208,26 @@
             "name": "source",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
             }
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
             }
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             }
           }
         ],
@@ -151,19 +246,79 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/BatchAck"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный JSON или заголовки фото",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса превышает лимит",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -181,7 +336,7 @@
                     "minItems": 1,
                     "maxItems": 12,
                     "items": {
-                      "$ref": "#/components/schemas/Event"
+                      "$ref": "#/components/schemas/MeasurementEvent"
                     }
                   }
                 }
@@ -209,19 +364,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Page"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -243,21 +438,26 @@
             "name": "source",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
             }
           },
           {
             "name": "limit",
             "in": "query",
             "schema": {
-              "type": "integer"
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
             }
           },
           {
             "name": "cursor",
             "in": "query",
             "schema": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 256
             }
           }
         ],
@@ -276,19 +476,79 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/PhotoAck"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный JSON или заголовки фото",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса превышает лимит",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -296,7 +556,7 @@
             "name": "X-Event",
             "in": "header",
             "required": true,
-            "description": "JSON Event, kind=photo, status=ok.",
+            "description": "JSON по схеме PhotoEvent: kind=photo, status=ok; максимум 8192 символа.",
             "schema": {
               "type": "string",
               "maxLength": 8192
@@ -341,13 +601,53 @@
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Фото не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -373,19 +673,79 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Session"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный JSON или заголовки фото",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса превышает лимит",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin или CSRF не разрешён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "requestBody": {
@@ -426,13 +786,53 @@
             "description": "Сессия отозвана, cookie очищена."
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin или CSRF не разрешён",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "description": "Для cookie обязательны разрешённый Origin и X-CSRF-Token: 1.",
@@ -465,19 +865,59 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object"
+                  "$ref": "#/components/schemas/Aggregate"
                 }
               }
             }
           },
           "401": {
-            "description": "Нет действующей авторизации"
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "description": "Квота/частота запросов, Retry-After"
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
           },
           "503": {
-            "description": "Временная ошибка, повторить позже"
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -502,7 +942,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
             }
           },
           {
@@ -510,7 +951,8 @@
             "in": "query",
             "required": true,
             "schema": {
-              "type": "string"
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_]{1,64}$"
             }
           },
           {
@@ -518,7 +960,10 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "number"
+              "type": "integer",
+              "minimum": 600,
+              "maximum": 86400,
+              "default": 3600
             }
           }
         ],
@@ -571,7 +1016,8 @@
             "format": "uuid"
           },
           "observed_at": {
-            "type": "number"
+            "type": "number",
+            "minimum": 0
           },
           "kind": {
             "enum": [
@@ -594,10 +1040,314 @@
             "maxProperties": 32,
             "additionalProperties": {
               "type": "number"
+            },
+            "propertyNames": {
+              "pattern": "^[a-zA-Z0-9_]{1,64}$"
             }
           },
           "clock_synchronized": {
             "type": "boolean"
+          }
+        }
+      },
+      "StoredEvent": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "schema_version",
+          "device_id",
+          "event_id",
+          "observed_at",
+          "kind",
+          "source",
+          "status",
+          "values",
+          "clock_synchronized",
+          "received_at"
+        ],
+        "properties": {
+          "schema_version": {
+            "const": 1
+          },
+          "device_id": {
+            "type": "string"
+          },
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "observed_at": {
+            "type": "number",
+            "minimum": 0
+          },
+          "kind": {
+            "enum": [
+              "measurement",
+              "photo"
+            ]
+          },
+          "source": {
+            "type": "string",
+            "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+          },
+          "status": {
+            "enum": [
+              "ok",
+              "error"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "maxProperties": 32,
+            "additionalProperties": {
+              "type": "number"
+            },
+            "propertyNames": {
+              "pattern": "^[a-zA-Z0-9_]{1,64}$"
+            }
+          },
+          "clock_synchronized": {
+            "type": "boolean"
+          },
+          "received_at": {
+            "type": "number"
+          }
+        }
+      },
+      "MeasurementEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Event"
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "measurement"
+              }
+            }
+          }
+        ]
+      },
+      "PhotoEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Event"
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "photo"
+              },
+              "status": {
+                "const": "ok"
+              }
+            }
+          }
+        ]
+      },
+      "Health": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "const": "ok"
+          }
+        }
+      },
+      "Error": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "detail"
+        ],
+        "properties": {
+          "detail": {
+            "type": "string"
+          }
+        }
+      },
+      "PhotoAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "status"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "status": {
+            "enum": [
+              "stored",
+              "duplicate",
+              "expired",
+              "invalid_time",
+              "conflict"
+            ]
+          }
+        }
+      },
+      "MeasurementAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "event_id",
+          "status"
+        ],
+        "properties": {
+          "event_id": {
+            "type": "string",
+            "maxLength": 64
+          },
+          "status": {
+            "enum": [
+              "stored",
+              "duplicate",
+              "expired",
+              "invalid_time",
+              "conflict",
+              "invalid"
+            ]
+          }
+        }
+      },
+      "BatchAck": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "results"
+        ],
+        "properties": {
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MeasurementAck"
+            }
+          }
+        }
+      },
+      "Page": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoredEvent"
+            }
+          },
+          "next_cursor": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        }
+      },
+      "Latest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "device_id",
+          "last_seen",
+          "items"
+        ],
+        "properties": {
+          "device_id": {
+            "type": "string"
+          },
+          "last_seen": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StoredEvent"
+            }
+          }
+        }
+      },
+      "Session": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "session_key",
+          "expires_at"
+        ],
+        "properties": {
+          "session_key": {
+            "type": "string",
+            "pattern": "^[a-f0-9]{64}$"
+          },
+          "expires_at": {
+            "type": "number"
+          }
+        }
+      },
+      "Aggregate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "source",
+          "metric",
+          "bucket_seconds",
+          "items"
+        ],
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string"
+          },
+          "bucket_seconds": {
+            "type": "integer",
+            "minimum": 600,
+            "maximum": 86400
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "bucket",
+                "count",
+                "mean",
+                "minimum",
+                "maximum"
+              ],
+              "properties": {
+                "bucket": {
+                  "type": "number"
+                },
+                "count": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "mean": {
+                  "type": "number"
+                },
+                "minimum": {
+                  "type": "number"
+                },
+                "maximum": {
+                  "type": "number"
+                }
+              }
+            }
           }
         }
       }
