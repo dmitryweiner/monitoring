@@ -3,7 +3,10 @@
 Python-агент на SBC собирает температуру CPU и JPEG каждые 10 минут. Неотправленное
 хранится в SQLite до суток. Cloudflare Worker принимает данные по HTTPS: D1 хранит
 показания 90 дней, закрытый R2 — фото 30 дней. SSH — штатный OpenSSH через Tailscale.
-Веб-интерфейс не входит в этот этап. Требования — [PLAN.md](PLAN.md),
+Веб-клиент разрабатывается отдельным проектом и в этот репозиторий не входит:
+исходники https://github.com/dmitryweiner/monitoring-client,
+опубликован на https://dmitryweiner.github.io/monitoring-client/.
+Здесь он влияет только на ALLOWED_ORIGINS. Требования — [PLAN.md](PLAN.md),
 фактическое состояние — [STATUS.md](STATUS.md).
 
 Инструкция передачи, карта файлов и оставшиеся задачи — [docs/HANDOFF.md](docs/HANDOFF.md).
@@ -122,8 +125,11 @@ received_at — приём облаком. Температура CPU имеет
 
 Сессия действует 7 дней, передаётся через Bearer или Secure/HttpOnly cookie.
 Для DELETE с cookie нужны разрешённый Origin и X-CSRF-Token: 1.
-ALLOWED_ORIGINS задаётся при интеграции UI. Для разных сайтов использовать Bearer
-в памяти клиента либо прокси API под доменом UI. Изменение ADMIN_HASH
+ALLOWED_ORIGINS содержит https://dmitryweiner.github.io — источник веб-клиента.
+Это только схема и хост: путь /monitoring-client/ в источник не входит.
+localhost намеренно отсутствует: dev-сервер клиента проксирует запросы к Worker
+и снимает заголовок Origin. Для других сайтов использовать Bearer в памяти
+клиента либо прокси API под доменом UI. Изменение ADMIN_HASH
 инвалидирует существующие сессии.
 
 Событие содержит schema_version=1, device_id, UUID event_id, observed_at,

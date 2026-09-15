@@ -14,13 +14,18 @@
    ближайшая незавершённая работа.
 
 При расхождении план не считать доказательством выполненной настройки:
-фактические результаты находятся в STATUS.md. Веб-интерфейс сейчас не разрабатывается.
+фактические результаты находятся в STATUS.md.
+
+Веб-клиент ведётся отдельным репозиторием https://github.com/dmitryweiner/monitoring-client
+и опубликован на https://dmitryweiner.github.io/monitoring-client/.
+В этом репозитории он не лежит; единственная связь — ALLOWED_ORIGINS Worker.
 
 ## Где находятся файлы
 
 | Место | Содержание |
 | --- | --- |
 | GitHub: dmitryweiner/monitoring | Репозиторий исходников; ветка main |
+| GitHub: dmitryweiner/monitoring-client | Веб-клиент, отдельный проект; TypeScript, Vite, uPlot |
 | Исходный компьютер: /home/dmw/projects/monitoring | Полная рабочая копия этого промежуточного результата |
 | Orange Pi: /home/dmw/projects/monitoring | Git checkout, пользователь dmw, origin — тот же GitHub |
 | Orange Pi: /opt/monitoring/monitoring | Установленные agent.py, common.py, spool.py, __init__.py; обновлены 14 сентября |
