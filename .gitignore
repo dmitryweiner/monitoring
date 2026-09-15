@@ -10,6 +10,7 @@ secrets/
 config.yaml
 mihomo/
 cache.db
+*.swp
 data/
 *.db
 *.db-*
