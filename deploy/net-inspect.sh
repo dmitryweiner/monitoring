@@ -58,7 +58,7 @@ rule 'mihomo configuration (credentials removed)'
 awk '
 /^[a-zA-Z]/ { skip = ($0 ~ /^(proxies|proxy-providers|proxy-groups|rules|rule-providers|sub-rules|listeners):/) }
 skip { next }
-/(password|uuid|secret|token|username|server|servername|sni|ws-opts|private-key|psk)/ { next }
+/^[[:space:]]*-?[[:space:]]*(password|uuid|secret|token|username|server|servername|sni|ws-opts|private-key|public-key|short-id|psk|path|host):/ { next }
 { print }
 ' "$config"
 echo "--- counts only ---"

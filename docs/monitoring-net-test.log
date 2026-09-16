@@ -1,0 +1,108 @@
+2026-09-16T04:44:42Z === baseline, hold 180s ===
+2026-09-16T04:44:42Z [before] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:44:42Z [before] control-plane DNS: 192.200.0.111
+2026-09-16T04:44:42Z [before] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:44:42Z [before] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:44:43Z [before] worker /healthz: 200
+2026-09-16T04:44:43Z [before] agent=active mihomo=active
+2026-09-16T04:44:43Z no changes requested
+2026-09-16T04:44:43Z Try 'ssh dmw@<tailscale-ip>' from the admin machine now.
+2026-09-16T04:47:43Z [after] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:47:43Z [after] control-plane DNS: 192.200.0.107
+2026-09-16T04:47:43Z [after] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:47:43Z [after] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:47:44Z [after] worker /healthz: 200
+2026-09-16T04:47:44Z [after] agent=active mihomo=active
+2026-09-16T04:47:44Z report: /var/log/monitoring-net-test.log
+2026-09-16T04:49:37Z === no-mihomo, hold 180s ===
+2026-09-16T04:49:37Z [before] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:49:37Z [before] control-plane DNS: 192.200.0.113
+2026-09-16T04:49:37Z [before] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:49:37Z [before] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:49:38Z [before] worker /healthz: 200
+2026-09-16T04:49:38Z [before] agent=active mihomo=active
+2026-09-16T04:49:38Z rollback armed: fires in 300s even if this session dies
+2026-09-16T04:49:38Z mihomo stopped; try SSH over Tailscale from the admin machine now
+2026-09-16T04:52:38Z [during] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:52:38Z [during] control-plane DNS: 192.200.0.115
+2026-09-16T04:52:38Z [during] route to 1.1.1.1: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 uid 0 
+2026-09-16T04:52:38Z [during] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:52:39Z [during] worker /healthz: 200
+2026-09-16T04:52:39Z [during] agent=active mihomo=inactive
+2026-09-16T04:52:39Z [after] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:52:39Z [after] control-plane DNS: 192.200.0.101
+2026-09-16T04:52:39Z [after] route to 1.1.1.1: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 uid 0 
+2026-09-16T04:52:39Z [after] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:52:40Z [after] worker /healthz: 200
+2026-09-16T04:52:40Z [after] agent=active mihomo=inactive
+2026-09-16T04:52:40Z report: /var/log/monitoring-net-test.log
+2026-09-16T04:52:40Z restoring
+2026-09-16T04:52:40Z restored; mihomo=active tailscaled=active
+2026-09-16T04:52:41Z internet via VPN: 200
+2026-09-16T04:52:41Z === end (exit 0) ===
+2026-09-16T04:53:15Z === vpn-down, hold 180s ===
+2026-09-16T04:53:15Z [before] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:53:15Z [before] control-plane DNS: 192.200.0.113
+2026-09-16T04:53:15Z [before] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:53:15Z [before] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:53:16Z [before] worker /healthz: 200
+2026-09-16T04:53:16Z [before] agent=active mihomo=active
+2026-09-16T04:53:16Z rollback armed: fires in 300s even if this session dies
+2026-09-16T04:53:16Z blocked 14 VPN endpoint address(es); addresses are not printed
+2026-09-16T04:53:21Z block confirmed: worker unreachable through the VPN (000unreachable)
+2026-09-16T04:53:21Z VPN endpoints blocked, mihomo left running; try SSH over Tailscale now
+2026-09-16T04:53:41Z [during+20s] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:53:42Z [during+20s] control-plane DNS: 192.200.0.106
+2026-09-16T04:53:42Z [during+20s] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:53:42Z [during+20s] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:53:47Z [during+20s] worker /healthz: 000unreachable
+2026-09-16T04:53:47Z [during+20s] agent=active mihomo=active
+2026-09-16T04:56:27Z [during+180s] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:56:27Z [during+180s] control-plane DNS: 192.200.0.113
+2026-09-16T04:56:27Z [during+180s] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:56:27Z [during+180s] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:56:32Z [during+180s] worker /healthz: 000unreachable
+2026-09-16T04:56:32Z [during+180s] agent=active mihomo=active
+2026-09-16T04:56:32Z [after] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T04:56:32Z [after] control-plane DNS: 192.200.0.114
+2026-09-16T04:56:32Z [after] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T04:56:32Z [after] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T04:56:37Z [after] worker /healthz: 000unreachable
+2026-09-16T04:56:37Z [after] agent=active mihomo=active
+2026-09-16T04:56:37Z report: /var/log/monitoring-net-test.log
+2026-09-16T04:56:37Z restoring
+2026-09-16T04:56:38Z restored; mihomo=active tailscaled=active
+2026-09-16T04:56:38Z internet via VPN: 200
+2026-09-16T04:56:38Z === end (exit 0) ===
+2026-09-16T05:03:47Z === restart-mihomo, hold 180s ===
+2026-09-16T05:03:47Z [before] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T05:03:47Z [before] control-plane DNS: 192.200.0.114
+2026-09-16T05:03:47Z [before] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T05:03:47Z [before] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T05:03:48Z [before] worker /healthz: 200
+2026-09-16T05:03:48Z [before] agent=active mihomo=active
+2026-09-16T05:03:48Z rollback armed: fires in 300s even if this session dies
+2026-09-16T05:03:48Z mihomo restarted; watching whether Tailscale survives it
+2026-09-16T05:04:08Z [after-restart+20s] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T05:04:09Z [after-restart+20s] control-plane DNS: 192.200.0.112
+2026-09-16T05:04:09Z [after-restart+20s] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T05:04:09Z [after-restart+20s] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T05:04:09Z [after-restart+20s] worker /healthz: 200
+2026-09-16T05:04:09Z [after-restart+20s] agent=active mihomo=active
+2026-09-16T05:06:50Z [after-restart+180s] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T05:06:50Z [after-restart+180s] control-plane DNS: 192.200.0.112
+2026-09-16T05:06:50Z [after-restart+180s] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T05:06:50Z [after-restart+180s] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T05:06:50Z [after-restart+180s] worker /healthz: 200
+2026-09-16T05:06:50Z [after-restart+180s] agent=active mihomo=active
+2026-09-16T05:06:51Z [after] tailscale=Running lines=2 relayed_peers=2 ip=100.95.251.48
+2026-09-16T05:06:51Z [after] control-plane DNS: 192.200.0.114
+2026-09-16T05:06:51Z [after] route to 1.1.1.1: 1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+2026-09-16T05:06:51Z [after] route with tailscale mark: 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+2026-09-16T05:06:51Z [after] worker /healthz: 200
+2026-09-16T05:06:52Z [after] agent=active mihomo=active
+2026-09-16T05:06:52Z report: /var/log/monitoring-net-test.log
+2026-09-16T05:06:52Z restoring
+2026-09-16T05:06:52Z restored; mihomo=active tailscaled=active
+2026-09-16T05:06:53Z internet via VPN: 200
+2026-09-16T05:06:53Z === end (exit 0) ===

@@ -72,17 +72,24 @@ arm_rollback() {
 # --- observations ------------------------------------------------------------
 
 probe_health() {
-    curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
-        -A monitoring-check/1 "$HEALTH" 2>/dev/null || echo "unreachable"
+    local code
+    # curl writes 000 and exits non-zero when it cannot connect; report one value.
+    code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 15 \
+        -A monitoring-check/1 "$HEALTH" 2>/dev/null)
+    case $code in
+        000|"") echo "unreachable" ;;
+        *) echo "$code" ;;
+    esac
 }
 
 observe() {
     local label=$1
-    local backend peers derp
+    local backend peers
     backend=$(tailscale status --json 2>/dev/null | sed -n 's/.*"BackendState": *"\([^"]*\)".*/\1/p' | head -1)
-    peers=$(tailscale status 2>/dev/null | grep -cv '^$')
-    derp=$(tailscale status --json 2>/dev/null | grep -c '"Relay": *"[a-z]')
-    log "[$label] tailscale=${backend:-unknown} lines=$peers relayed_peers=$derp ip=$(tailscale ip -4 2>/dev/null | head -1)"
+    # Peer lines only; the Relay field is set even for direct links, so counting
+    # it proves nothing. Use `tailscale ping <peer>` to tell direct from DERP.
+    peers=$(tailscale status 2>/dev/null | grep -c '^100\.')
+    log "[$label] tailscale=${backend:-unknown} nodes=$peers ip=$(tailscale ip -4 2>/dev/null | head -1)"
     log "[$label] control-plane DNS: $(getent ahostsv4 controlplane.tailscale.com 2>/dev/null | awk '{print $1; exit}' || echo FAILED)"
     log "[$label] route to 1.1.1.1: $(ip route get 1.1.1.1 2>&1 | head -1 | tr -s ' ')"
     log "[$label] route with tailscale mark: $(ip route get 1.1.1.1 mark 0x80000 2>&1 | head -1 | tr -s ' ')"

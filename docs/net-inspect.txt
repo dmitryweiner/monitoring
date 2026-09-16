@@ -1,0 +1,202 @@
+
+=== Tailscale ===
+Logged out.
+no current Tailscale IPs; state: NeedsLogin
+--- netcheck ---
+2026/09/16 03:55:02 No DERP map from tailscaled; using default.
+2026/09/16 03:55:02 attempting to fetch a DERPMap from https://controlplane.tailscale.com
+2026/09/16 03:55:03 portmap: monitor: gateway and self IP changed: gw=192.168.100.1 self=192.168.100.196
+
+Report:
+	* Time: 2026-09-16 03:55:05.442432202Z
+	* UDP: true
+	* IPv4: yes, 176.59.135.171:33846
+	* IPv6: no, but OS has support
+	* MappingVariesByDestIP: false
+	* PortMapping: 
+	* CaptivePortal: false
+	* Nearest DERP: Frankfurt
+	* DERP latency:
+		- fra: 124.6ms (Frankfurt)
+		- mad: 138.6ms (Madrid)
+		- hel: 139.5ms (Helsinki)
+		- tok: 143.5ms (Tokyo)
+		- lhr: 143.6ms (London)
+		- waw: 147ms   (Warsaw)
+		- par: 147.4ms (Paris)
+		- nue: 147.4ms (Nuremberg)
+		- ams: 151.8ms (Amsterdam)
+		- nyc: 222.7ms (New York City)
+		- tor: 222.7ms (Toronto)
+
+=== Interfaces and routes ===
+lo               UNKNOWN        127.0.0.1/8 ::1/128 
+ip_vti0@NONE     DOWN           
+end0             DOWN           
+wlan0            UP             192.168.100.196/24 metric 600 fe80::b687:39ff:febe:cfc8/64 
+tailscale0       UNKNOWN        fe80::5786:ccb9:ce25:a719/64 
+Meta             UNKNOWN        198.18.0.1/30 fe80::643b:a54a:49ac:fed1/64 
+default via 192.168.100.1 dev wlan0 proto dhcp src 192.168.100.196 metric 600 
+192.168.100.0/24 dev wlan0 proto kernel scope link src 192.168.100.196 metric 600 
+192.168.100.1 dev wlan0 proto dhcp scope link src 192.168.100.196 metric 600 
+198.18.0.0/30 dev Meta proto kernel scope link src 198.18.0.1 
+--- policy rules v4 ---
+0:	from all lookup local
+5210:	from all fwmark 0x80000/0xff0000 lookup main
+5230:	from all fwmark 0x80000/0xff0000 lookup default
+5250:	from all fwmark 0x80000/0xff0000 unreachable
+5270:	from all lookup 52
+9000:	from all to 198.18.0.0/30 lookup 2022
+9001:	not from all dport 53 lookup main suppress_prefixlength 0
+9001:	from all iif Meta goto 9010
+9002:	not from all iif lo lookup 2022
+9002:	from 0.0.0.0 iif lo lookup 2022
+9002:	from 198.18.0.0/30 iif lo lookup 2022
+9010:	from all nop
+32766:	from all lookup main
+32767:	from all lookup default
+--- policy rules v6 ---
+0:	from all lookup local
+5210:	from all fwmark 0x80000/0xff0000 lookup main
+5230:	from all fwmark 0x80000/0xff0000 lookup default
+5250:	from all fwmark 0x80000/0xff0000 unreachable
+5270:	from all lookup 52
+32766:	from all lookup main
+--- tun table 2022 (first 5) ---
+0.0.0.0/1 via 198.18.0.2 dev Meta 
+128.0.0.0/2 via 198.18.0.2 dev Meta 
+192.0.0.0/9 via 198.18.0.2 dev Meta 
+192.128.0.0/11 via 198.18.0.2 dev Meta 
+192.160.0.0/13 via 198.18.0.2 dev Meta 
+--- tailscale table 52 ---
+
+=== Path selection ===
+1.1.1.1          1.1.1.1 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+  +tailscale mark 1.1.1.1 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+8.8.8.8          8.8.8.8 via 198.18.0.2 dev Meta table 2022 src 198.18.0.1 uid 0 
+  +tailscale mark 8.8.8.8 via 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+192.168.100.1    192.168.100.1 dev wlan0 src 192.168.100.196 uid 0 
+  +tailscale mark 192.168.100.1 dev wlan0 src 192.168.100.196 mark 0x80000 uid 0 
+
+=== DNS ===
+Global
+         Protocols: +LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+  resolv.conf mode: stub
+
+Link 2 (ip_vti0)
+    Current Scopes: none
+         Protocols: -DefaultRoute +LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+     Default Route: no
+
+Link 3 (end0)
+--- link with default route ---
+     Default Route: yes
+
+Link 5 (tailscale0)
+    Current Scopes: none
+         Protocols: +DefaultRoute -LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+     Default Route: yes
+
+Link 6 (Meta)
+    Current Scopes: DNS LLMNR/IPv4 LLMNR/IPv6
+         Protocols: +DefaultRoute +LLMNR -mDNS -DNSOverTLS DNSSEC=no/unsupported
+--
+     Default Route: yes
+--- control plane and DERP resolution ---
+controlplane.tailscale.com   198.18.0.91
+derp1.tailscale.com          198.18.0.92
+login.tailscale.com          198.18.0.93
+
+=== Netfilter ===
+--- iptables ruleset ---
+-P INPUT ACCEPT
+-P FORWARD ACCEPT
+-P OUTPUT ACCEPT
+nft: not installed
+
+=== mihomo service and listeners ===
+NRestarts=0
+ExecStart={ path=/usr/local/bin/mihomo ; argv[]=/usr/local/bin/mihomo -d /etc/mihomo ; ignore_errors=no ; start_time=[Tue 2026-09-15 06:00:34 UTC] ; stop_time=[n/a] ; pid=1025 ; code=(null) ; status=0/0 }
+ActiveState=active
+SubState=running
+udp   UNCONN 0      0                          *:7890             *:*    users:(("mihomo",pid=1025,fd=11))        
+udp   UNCONN 0      0                          *:7891             *:*    users:(("mihomo",pid=1025,fd=7))         
+udp   UNCONN 0      0                          *:7892             *:*    users:(("mihomo",pid=1025,fd=10))        
+tcp   LISTEN 0      4096              198.18.0.1:42661      0.0.0.0:*    users:(("mihomo",pid=1025,fd=15))        
+tcp   LISTEN 0      4096               127.0.0.1:9090       0.0.0.0:*    users:(("mihomo",pid=1025,fd=3))         
+tcp   LISTEN 0      4096                       *:7891             *:*    users:(("mihomo",pid=1025,fd=6))         
+tcp   LISTEN 0      4096                       *:7890             *:*    users:(("mihomo",pid=1025,fd=8))         
+tcp   LISTEN 0      4096                       *:7892             *:*    users:(("mihomo",pid=1025,fd=9))         
+
+=== mihomo configuration (credentials removed) ===
+mixed-port: 7890
+socks-port: 7891
+redir-port: 7892
+allow-lan: true
+mode: global
+log-level: info
+external-controller: 127.0.0.1:9090
+dns:
+  enable: true
+  use-hosts: true
+  enhanced-mode: fake-ip
+  fake-ip-range: 198.18.0.1/16
+    - 1.1.1.1
+    - 8.8.8.8
+    - 1.1.1.1
+    - 8.8.8.8
+  fake-ip-filter:
+    - "*.lan"
+    - stun.*.*.*
+    - stun.*.*
+    - time.windows.com
+    - time.nist.gov
+    - time.apple.com
+    - time.asia.apple.com
+    - "*.openwrt.pool.ntp.org"
+    - pool.ntp.org
+    - ntp.ubuntu.com
+    - time1.apple.com
+    - time2.apple.com
+    - time3.apple.com
+    - time4.apple.com
+    - time5.apple.com
+    - time6.apple.com
+    - time7.apple.com
+    - time1.google.com
+    - time2.google.com
+    - time3.google.com
+    - time4.google.com
+    - api.joox.com
+    - joox.com
+    - "*.xiami.com"
+    - "*.msftconnecttest.com"
+    - "*.msftncsi.com"
+    - +.xboxlive.com
+    - "*.*.stun.playstation.net"
+    - xbox.*.*.microsoft.com
+    - "*.ipv6.microsoft.com"
+    - speedtest.cros.wr.pvp.net
+tun:
+  route-exclude-address:
+    - 192.168.100.0/24
+  enable: true
+  stack: system
+  auto-route: true
+  auto-detect-interface: true
+  dns-hijack:
+    - any:53
+--- counts only ---
+proxy entries: 12
+distinct server values: 7
+
+=== sshd ===
+active
+active
+port 22
+listenaddress [::]:22
+listenaddress 0.0.0.0:22
+permitrootlogin yes
+passwordauthentication yes
+
+Inventory complete. Nothing was changed.
