@@ -1,0 +1,33 @@
+[Unit]
+Description=Case fan switched by CPU load
+Documentation=file:/opt/monitoring/deploy/fan-control.sh
+After=multi-user.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/sbin/fan-control.sh
+Restart=always
+RestartSec=5
+# Thresholds, in case they need changing without touching the script:
+# Environment=FAN_LOAD_ON=60
+# Environment=FAN_LOAD_OFF=30
+# Environment=FAN_MIN_ON=60
+# Environment=FAN_TEMP_FORCE=70000
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX
+DevicePolicy=closed
+DeviceAllow=/dev/gpiochip0 rw
+MemoryMax=32M
+TasksMax=16
+TimeoutStopSec=10
+LogRateLimitIntervalSec=60
+LogRateLimitBurst=30
+
+[Install]
+WantedBy=multi-user.target
