@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Switches the case fan on and off by CPU utilisation. On/off only, no PWM.
+# Switches the case fan on and off by SoC temperature. On/off only, no PWM.
+#
+# Temperature, not CPU load: load only hints at heat, and a board with the fan
+# stopped settles near 50 °C even when idle. The fan starts above FAN_TEMP_ON and
+# stops below FAN_TEMP_OFF; the gap and a minimum run time keep it from chattering.
 #
 # The fan is a Raspberry Pi Active Cooler on header pin 32 (PD5). Its PWM input
 # is active high: driven high it spins, driven low it stops. Measured on the
@@ -16,43 +20,28 @@ command -v gpioset >/dev/null || { echo 'gpioset is missing: apt install gpiod';
 chip=${FAN_CHIP:-gpiochip0}
 line=${FAN_LINE:-101}           # PD5: bank D is the fourth, so 3 * 32 + 5
 
-load_on=${FAN_LOAD_ON:-60}      # start above this utilisation, percent of all cores
-load_off=${FAN_LOAD_OFF:-30}    # stop below it; the gap is the hysteresis
+temp_on=${FAN_TEMP_ON:-55000}   # start above this, millidegrees as in /sys/class/thermal
+temp_off=${FAN_TEMP_OFF:-48000} # stop below this; the gap is the hysteresis
 min_on=${FAN_MIN_ON:-60}        # once started, keep running this long, seconds
-poll=${FAN_POLL:-5}             # sampling window, seconds
-
-# Independent of load: run the fan above this temperature however idle the board
-# looks, because utilisation lags heat and a hot passive board reads as idle.
-# Set to 0 to drop the safety net and switch purely on load.
-temp_force=${FAN_TEMP_FORCE:-70000}   # millidegrees, as in /sys/class/thermal/*/temp
+poll=${FAN_POLL:-5}             # seconds between readings
 zones=${FAN_ZONES:-'cpub_thermal_zone cpul_thermal_zone gpu_thermal_zone'}
+
+if [ "$temp_off" -ge "$temp_on" ]; then
+    echo "FAN_TEMP_OFF ($temp_off) must be below FAN_TEMP_ON ($temp_on)" >&2
+    exit 1
+fi
 
 temp_files=()
 for zone in /sys/class/thermal/thermal_zone*; do
     type=$(cat "$zone/type" 2>/dev/null) || continue
     case " $zones " in *" $type "*) temp_files+=("$zone/temp");; esac
 done
-if [ "$temp_force" -gt 0 ] && [ ${#temp_files[@]} -eq 0 ]; then
+if [ ${#temp_files[@]} -eq 0 ]; then
+    # Without a temperature the fan cannot be switched safely: exit and let the
+    # released line run it at full speed.
     echo "none of the thermal zones exist: $zones" >&2
     exit 1
 fi
-
-# Utilisation between two calls. Keeps its counters in globals on purpose: a
-# command substitution would run this in a subshell and lose them every tick.
-prev_total=0
-prev_idle=0
-busy=0
-sample_cpu() {
-    local _name user nice system idle iowait irq softirq steal total quiet delta_total delta_idle
-    read -r _name user nice system idle iowait irq softirq steal _ < /proc/stat
-    total=$((user + nice + system + idle + iowait + irq + softirq + steal))
-    quiet=$((idle + iowait))
-    delta_total=$((total - prev_total))
-    delta_idle=$((quiet - prev_idle))
-    prev_total=$total
-    prev_idle=$quiet
-    if [ "$delta_total" -le 0 ]; then busy=0; else busy=$(((delta_total - delta_idle) * 100 / delta_total)); fi
-}
 
 hottest() {
     local max=0 value
@@ -79,33 +68,26 @@ set_fan() {   # 1 = spinning, 0 = stopped; the input is active high, so no -l
 
 trap 'if [ -n "$gpio_pid" ]; then kill "$gpio_pid" 2>/dev/null; fi; exit 0' INT TERM
 
-echo "fan on pin 32 ($chip line $line): on above ${load_on}%, off below ${load_off}%, minimum ${min_on}s"
-[ "$temp_force" -gt 0 ] && echo "forced on from $((temp_force / 1000)) °C regardless of load"
+echo "fan on pin 32 ($chip line $line): on above $((temp_on / 1000)) °C," \
+     "off below $((temp_off / 1000)) °C, minimum ${min_on}s"
 
-set_fan 0
-sample_cpu           # first sample only primes the counters
 running=0
 started=0
+set_fan 0
 
 while :; do
-    sleep "$poll"
-    sample_cpu
     temp=$(hottest)
-
-    hot=0
-    if [ "$temp_force" -gt 0 ] && [ "$temp" -ge "$temp_force" ]; then hot=1; fi
-
     now=$(date +%s)
     if [ "$running" -eq 0 ]; then
-        if [ "$busy" -ge "$load_on" ] || [ "$hot" -eq 1 ]; then
+        if [ "$temp" -gt "$temp_on" ]; then
             running=1
             started=$now
-            echo "on: cpu ${busy}%, $((temp / 1000)) °C$([ "$hot" -eq 1 ] && echo ' (temperature)')"
+            echo "on: $((temp / 1000)) °C"
         fi
-    elif [ "$busy" -lt "$load_off" ] && [ "$hot" -eq 0 ] && [ $((now - started)) -ge "$min_on" ]; then
+    elif [ "$temp" -lt "$temp_off" ] && [ $((now - started)) -ge "$min_on" ]; then
         running=0
-        echo "off: cpu ${busy}%, $((temp / 1000)) °C"
+        echo "off: $((temp / 1000)) °C after $((now - started))s"
     fi
-
     set_fan "$running"
+    sleep "$poll"
 done

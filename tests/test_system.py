@@ -321,7 +321,7 @@ def test_dht11_source_reports_values_or_error(monkeypatch):
     def reading(chip, line, attempts):
         calls.append((chip, line, attempts))
         return 42.5, 25.0
-    monkeypatch.setattr(agent.dht11, "read", reading)
+    monkeypatch.setattr(agent.dht11, "read_isolated", reading)
     item = next(read_sources(config))
     assert (item["source"], item["status"]) == ("room", "ok")
     assert item["values"] == {"humidity_percent": 42.5, "temperature_c": 25.0}
@@ -330,7 +330,7 @@ def test_dht11_source_reports_values_or_error(monkeypatch):
     for failure in (ValueError("checksum mismatch"), PermissionError(13, "denied")):
         def broken(*args, **kwargs):
             raise failure
-        monkeypatch.setattr(agent.dht11, "read", broken)
+        monkeypatch.setattr(agent.dht11, "read_isolated", broken)
         item = next(read_sources(config))
         assert (item["status"], item["values"]) == ("error", {})
 
@@ -342,7 +342,21 @@ def test_dht11_failure_does_not_stop_other_sources(monkeypatch, tmp_path):
     config = {"device_id": "home", "sources": [
         {"name": "room", "type": "dht11"},
         {"name": "cpu", "fields": {"cpu_temperature_c": {"path": str(reading), "scale": .001}}}]}
-    monkeypatch.setattr(agent.dht11, "read", lambda *a, **k: (_ for _ in ()).throw(ValueError("no frame")))
+    monkeypatch.setattr(agent.dht11, "read_isolated", lambda *a, **k: (_ for _ in ()).throw(ValueError("no frame")))
     items = list(read_sources(config))
     assert [(i["source"], i["status"]) for i in items] == [("room", "error"), ("cpu", "ok")]
     assert items[1]["values"] == {"cpu_temperature_c": 41.0}
+
+
+def test_photo_thread_starts_after_its_offset():
+    import threading
+    from monitoring.agent import periodic
+    stop = threading.Event()
+    started = time.monotonic()
+    calls = []
+
+    def callback():
+        calls.append(time.monotonic() - started)
+        stop.set()
+    periodic(stop, 600, callback, offset=0.2)
+    assert len(calls) == 1 and calls[0] >= 0.2

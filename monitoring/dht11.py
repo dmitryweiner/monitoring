@@ -19,9 +19,13 @@ were checked against /usr/include/linux/gpio.h on the board.
 import argparse
 import fcntl
 import gc
+import json
 import os
 import struct
+import subprocess
+import sys
 import time
+from pathlib import Path
 
 GET_LINE = 0xC250B407     # GPIO_V2_GET_LINE_IOCTL, struct gpio_v2_line_request (592 bytes)
 SET_CONFIG = 0xC110B40D   # GPIO_V2_LINE_SET_CONFIG_IOCTL, struct gpio_v2_line_config (272)
@@ -150,6 +154,20 @@ def decode(edges):
     return humidity, temperature
 
 
+def fast_cores():
+    """The CPUs with the highest capacity; on the A733 that is the two A76 cores."""
+    capacities = {}
+    for path in Path("/sys/devices/system/cpu").glob("cpu[0-9]*/cpu_capacity"):
+        try:
+            capacities[int(path.parent.name[3:])] = int(path.read_text())
+        except (OSError, ValueError):
+            continue
+    if not capacities:
+        return set()
+    best = max(capacities.values())
+    return {cpu for cpu, capacity in capacities.items() if capacity == best}
+
+
 def read(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
     """A checksum-valid reading, retrying; the sensor needs about 2 s between reads."""
     error = None
@@ -158,9 +176,54 @@ def read(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
             time.sleep(pause)
         try:
             return decode(capture(chip, line)[1])
+        except (PermissionError, FileNotFoundError):
+            raise  # retrying cannot fix access or a missing chip
         except (OSError, ValueError) as exc:
             error = exc
     raise ValueError(f"no valid frame in {attempts} attempts: {error}")
+
+
+def read_isolated(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
+    """read() in a child process, for callers that run other Python threads.
+
+    Every sample is an ioctl, and an ioctl releases the GIL. Inside the agent,
+    another thread can take it and hold the sampling loop for up to the switch
+    interval (5 ms) — longer than the whole frame. In the agent this failed all
+    five attempts of a reading about one time in nine. A separate interpreter
+    has nobody to hand the GIL to.
+    """
+    command = [sys.executable, "-m", "monitoring.dht11", "--json", "--chip", chip,
+               "--line", str(line), "--attempts", str(attempts), "--pause", str(pause)]
+    timeout = attempts * (pause + 1) + 10
+    try:
+        result = subprocess.run(command, cwd=Path(__file__).resolve().parent.parent,
+                                capture_output=True, text=True, timeout=timeout)
+    except subprocess.TimeoutExpired as exc:
+        raise ValueError("sensor read timed out") from exc
+    try:
+        answer = json.loads(result.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError) as exc:
+        raise ValueError(f"no answer from the reader (exit {result.returncode})") from exc
+    if "error" in answer:
+        kinds = {"PermissionError": PermissionError, "FileNotFoundError": FileNotFoundError}
+        raise kinds.get(answer.get("kind"), ValueError)(answer["error"])
+    return answer["humidity_percent"], answer["temperature_c"]
+
+
+def _json_reading(args):
+    cores = fast_cores()
+    if cores:
+        try:
+            os.sched_setaffinity(0, cores)
+        except OSError:
+            pass
+    try:
+        humidity, temperature = read(args.chip, args.line, args.attempts, args.pause)
+    except (OSError, ValueError) as exc:
+        print(json.dumps({"error": str(exc), "kind": type(exc).__name__}))
+        return 1
+    print(json.dumps({"humidity_percent": humidity, "temperature_c": temperature}))
+    return 0
 
 
 def main():
@@ -169,7 +232,16 @@ def main():
     parser.add_argument("--line", type=int, default=119)
     parser.add_argument("--count", type=int, default=5, help="readings to take")
     parser.add_argument("--raw", action="store_true", help="print edge timing for each try")
+    parser.add_argument("--json", action="store_true",
+                        help="one reading with retries, as a JSON line (used by the agent)")
+    parser.add_argument("--attempts", type=int, default=5)
+    parser.add_argument("--pause", type=float, default=2.0)
+    parser.add_argument("--pin", action="store_true", help="run on the fastest cores")
     args = parser.parse_args()
+    if args.json:
+        return _json_reading(args)
+    if args.pin and fast_cores():
+        os.sched_setaffinity(0, fast_cores())
     ok = 0
     for attempt in range(args.count):
         if attempt:

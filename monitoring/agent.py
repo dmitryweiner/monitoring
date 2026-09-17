@@ -63,9 +63,9 @@ def read_sources(config):
 def read_dht11(config, source):
     """A DHT11 on a GPIO line; a frame that never checks out becomes status=error."""
     try:
-        humidity, temperature = dht11.read(source.get("chip", "/dev/gpiochip0"),
-                                           source.get("line", 119),
-                                           attempts=source.get("attempts", 5))
+        humidity, temperature = dht11.read_isolated(source.get("chip", "/dev/gpiochip0"),
+                                                    source.get("line", 119),
+                                                    attempts=source.get("attempts", 5))
     except (OSError, ValueError) as exc:
         # A missing permission and a bad frame need different fixes; keep them apart.
         LOG.warning("%s unavailable: %s", source["name"], type(exc).__name__)
@@ -146,8 +146,10 @@ class Uploader:
             raise ValueError("server rejected some events")
 
 
-def periodic(stop, interval, callback):
+def periodic(stop, interval, callback, offset=0):
     """Monotonic scheduling, no concurrent runs or catch-up storm after suspension."""
+    if offset:
+        stop.wait(offset)
     while not stop.is_set():
         started = time.monotonic()
         try:
@@ -186,8 +188,12 @@ def run(config, once=False, collect_only=False):
         print(canonical(spool.status()))
         return
 
-    threads = [threading.Thread(target=periodic, args=(stop, config.get("interval_seconds", 600), fn),
-                                daemon=True) for fn in (measurements, photo)]
+    interval = config.get("interval_seconds", 600)
+    # The camera and the photo upload are the busiest moments of a cycle; keep
+    # them clear of the sensor reads, which a loaded CPU makes fail.
+    photo_offset = config.get("camera", {}).get("offset_seconds", 30)
+    threads = [threading.Thread(target=periodic, args=(stop, interval, measurements), daemon=True),
+               threading.Thread(target=periodic, args=(stop, interval, photo, photo_offset), daemon=True)]
     threads.append(threading.Thread(target=periodic, args=(stop, 60, spool.prune), daemon=True))
     for thread in threads:
         thread.start()

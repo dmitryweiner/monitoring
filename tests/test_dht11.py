@@ -63,3 +63,56 @@ def test_request_layout_matches_the_kernel_header():
     request = dht11._request(119, config)
     assert len(request) == 592
     assert request[:4] == (119).to_bytes(4, "little")
+
+
+class Finished:
+    def __init__(self, stdout, returncode=0):
+        self.stdout, self.returncode = stdout, returncode
+
+
+def test_isolated_read_parses_the_child_answer(monkeypatch):
+    import subprocess
+    answers = iter([
+        Finished('{"humidity_percent": 41.0, "temperature_c": 25.2}\n'),
+        Finished('{"error": "no valid frame in 5 attempts", "kind": "ValueError"}\n', 1),
+        Finished('{"error": "denied", "kind": "PermissionError"}\n', 1),
+        Finished('Traceback (most recent call last):\n', 1),
+    ])
+    monkeypatch.setattr(dht11.subprocess, "run", lambda *a, **k: next(answers))
+    assert dht11.read_isolated() == (41.0, 25.2)
+    with pytest.raises(ValueError, match="no valid frame"):
+        dht11.read_isolated()
+    with pytest.raises(PermissionError):
+        dht11.read_isolated()
+    with pytest.raises(ValueError, match="no answer"):
+        dht11.read_isolated()
+
+    def slow(*args, **kwargs):
+        raise subprocess.TimeoutExpired(args[0], kwargs["timeout"])
+    monkeypatch.setattr(dht11.subprocess, "run", slow)
+    with pytest.raises(ValueError, match="timed out"):
+        dht11.read_isolated()
+
+
+def test_isolated_read_runs_a_real_child(tmp_path):
+    # A chip that does not exist fails the same way on every machine.
+    with pytest.raises(FileNotFoundError, match="No such file"):
+        dht11.read_isolated(chip=str(tmp_path / "gpiochip9"), attempts=3, pause=5)
+
+
+def test_setup_errors_are_not_retried(monkeypatch):
+    calls = []
+
+    def denied(*args):
+        calls.append(args)
+        raise PermissionError(13, "denied")
+    monkeypatch.setattr(dht11, "capture", denied)
+    monkeypatch.setattr(dht11.time, "sleep", lambda s: None)
+    with pytest.raises(PermissionError):
+        dht11.read(attempts=5)
+    assert len(calls) == 1
+
+
+def test_fast_cores_are_real_cpus():
+    import os
+    assert dht11.fast_cores() <= set(range(os.cpu_count()))
