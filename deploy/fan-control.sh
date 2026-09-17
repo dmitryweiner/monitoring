@@ -2,13 +2,13 @@
 # Switches the case fan on and off by CPU utilisation. On/off only, no PWM.
 #
 # The fan is a Raspberry Pi Active Cooler on header pin 32 (PD5). Its PWM input
-# is active low, so the line is pulled down to spin the fan and driven high to
-# stop it; see docs/PINOUT.md for the wiring and for why that is safe to drive
-# straight from a 3.3 V pin.
+# is active high: driven high it spins, driven low it stops. Measured on the
+# board on 17 September 2026 by holding each level; see docs/PINOUT.md for the
+# wiring and for why a 3.3 V pin can drive it directly.
 #
 # gpioset owns a line only while it runs, so the value is held by a background
-# gpioset that is replaced whenever the state changes. Releasing the line lets
-# the fan return to full speed, which is the failure this should have.
+# gpioset that is replaced whenever the state changes. A released line is pulled
+# up inside the fan and it runs at full speed, which is the failure this should have.
 set -uo pipefail
 test "$(id -u)" = 0 || { echo 'Run as root: it opens /dev/gpiochip0'; exit 1; }
 command -v gpioset >/dev/null || { echo 'gpioset is missing: apt install gpiod'; exit 1; }
@@ -65,14 +65,14 @@ hottest() {
 
 gpio_pid=''
 gpio_state=''
-set_fan() {   # 1 = spinning, 0 = stopped; -l maps that onto the active-low input
+set_fan() {   # 1 = spinning, 0 = stopped; the input is active high, so no -l
     local want=$1
     [ "$gpio_state" = "$want" ] && return
     if [ -n "$gpio_pid" ]; then
         kill "$gpio_pid" 2>/dev/null
         wait "$gpio_pid" 2>/dev/null
     fi
-    gpioset -l -c "$chip" "$line=$want" &
+    gpioset -c "$chip" "$line=$want" &
     gpio_pid=$!
     gpio_state=$want
 }

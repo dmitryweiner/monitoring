@@ -1,6 +1,6 @@
 [Unit]
 Description=Case fan switched by CPU load
-Documentation=file:/opt/monitoring/deploy/fan-control.sh
+Documentation=file:/usr/local/sbin/fan-control.sh
 After=multi-user.target
 
 [Service]
