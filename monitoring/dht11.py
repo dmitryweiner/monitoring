@@ -55,13 +55,17 @@ def _request(line, config, consumer=b"monitoring-dht11"):
 
 
 def _realtime():
-    """Raise to SCHED_FIFO for the capture; return a callable that undoes it."""
+    """Raise this thread to SCHED_FIFO; return (undo, whether it worked).
+
+    Without root this needs RLIMIT_RTPRIO, which the agent unit grants with
+    LimitRTPRIO. Failing is not fatal: the capture just runs less protected.
+    """
     try:
         previous = os.sched_getscheduler(0), os.sched_getparam(0)
         os.sched_setscheduler(0, os.SCHED_FIFO, os.sched_param(50))
     except (OSError, AttributeError):
-        return lambda: None
-    return lambda: os.sched_setscheduler(0, previous[0], previous[1])
+        return (lambda: None), False
+    return (lambda: os.sched_setscheduler(0, previous[0], previous[1])), True
 
 
 def capture(chip="/dev/gpiochip0", line=119):
@@ -76,7 +80,7 @@ def capture(chip="/dev/gpiochip0", line=119):
     edges = []
     values = bytearray(struct.pack("=QQ", 0, 1))   # bits, mask: line 0 of the request
     ioctl, now_ns = fcntl.ioctl, time.monotonic_ns
-    undo = _realtime()
+    undo, realtime = _realtime()
     gc_was_enabled = gc.isenabled()
     gc.disable()
     try:
@@ -101,7 +105,7 @@ def capture(chip="/dev/gpiochip0", line=119):
             gc.enable()
         undo()
         os.close(fd)
-    stats = {"switch_us": (switched - release) / 1000, "samples": samples,
+    stats = {"realtime": realtime, "switch_us": (switched - release) / 1000, "samples": samples,
              "sample_us": (now - switched) / 1000 / max(samples, 1),
              "first_us": (edges[0][0] - release) / 1000 if edges else None}
     return stats, edges
@@ -177,7 +181,8 @@ def main():
             continue
         if args.raw:
             widths = [round(w / 1000) for w in pulses(edges)]
-            print(f"#{attempt + 1}: switch {stats['switch_us']:.0f} us, "
+            print(f"#{attempt + 1}: realtime {'yes' if stats['realtime'] else 'NO'}, "
+                  f"switch {stats['switch_us']:.0f} us, "
                   f"{stats['samples']} samples at {stats['sample_us']:.2f} us, "
                   f"{len(edges)} edges, first at {stats['first_us']} us")
             print(f"    {len(widths)} highs (us): {widths}")
@@ -188,7 +193,8 @@ def main():
         except ValueError as exc:
             print(f"#{attempt + 1}: invalid frame: {exc}")
     print(f"{ok}/{args.count} valid")
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

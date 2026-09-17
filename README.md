@@ -80,7 +80,13 @@ sudo install -m 0600 -o monitoring -g monitoring /path/to/device.token /etc/moni
 sudoedit /etc/monitoring/agent.toml
 ```
 
-Указать HTTPS-адрес Worker. Камера использует постоянный путь
+Указать HTTPS-адрес Worker. Датчик DHT11 описывается источником с
+`type = "dht11"` (пример в deploy/agent.toml.example) и отдаёт `humidity_percent`
+и `temperature_c`. Ему нужен доступ к `/dev/gpiochip0`: группа `gpio`, правило udev
+и `SupplementaryGroups=video gpio` в службе — всё это ставит
+`sudo bash deploy/enable-dht11.sh`. Подробности — [docs/PINOUT.md](docs/PINOUT.md).
+
+Камера использует постоянный путь
 /dev/v4l/by-id/usb-Web_Camera_Web_Camera_202512181-video-index0, MJPEG 1280×720.
 ffmpeg пропускает первые 0,5 секунды из-за пустых начальных кадров.
 Нулевое дополнение после конца JPEG удаляется; обрезанный снимок не принимается.

@@ -6,7 +6,8 @@ After=network.target
 Type=simple
 User=monitoring
 Group=monitoring
-SupplementaryGroups=video
+# video: the camera; gpio: the DHT11, via deploy/99-monitoring-gpio.rules
+SupplementaryGroups=video gpio
 WorkingDirectory=/opt/monitoring
 ExecStart=/usr/bin/python3 -m monitoring.agent
 Restart=on-failure

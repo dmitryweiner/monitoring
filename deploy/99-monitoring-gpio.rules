@@ -1,0 +1,5 @@
+# Let the monitoring agent read the DHT11 on header pin 22 (PD23, gpiochip0
+# line 119). Only the chip that carries that line; the rest stay root-only.
+# gpiochip0 also carries the fan line, but fan-control holds it while running
+# and the kernel refuses a second request for a held line.
+SUBSYSTEM=="gpio", KERNEL=="gpiochip0", GROUP="gpio", MODE="0660"

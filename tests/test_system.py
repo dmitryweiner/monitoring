@@ -311,3 +311,38 @@ def test_restore_refuses_to_overwrite_the_source_resources(tmp_path):
     for database_name, bucket in [("prod", "other"), ("other", "prod-photos")]:
         with pytest.raises(ValueError, match="must differ"):
             restore_cloud.restore(tmp_path, tmp_path, database_name, bucket, False)
+
+
+def test_dht11_source_reports_values_or_error(monkeypatch):
+    from monitoring import agent
+    config = {"device_id": "home", "sources": [{"name": "room", "type": "dht11", "line": 119}]}
+    calls = []
+
+    def reading(chip, line, attempts):
+        calls.append((chip, line, attempts))
+        return 42.5, 25.0
+    monkeypatch.setattr(agent.dht11, "read", reading)
+    item = next(read_sources(config))
+    assert (item["source"], item["status"]) == ("room", "ok")
+    assert item["values"] == {"humidity_percent": 42.5, "temperature_c": 25.0}
+    assert calls == [("/dev/gpiochip0", 119, 5)]
+
+    for failure in (ValueError("checksum mismatch"), PermissionError(13, "denied")):
+        def broken(*args, **kwargs):
+            raise failure
+        monkeypatch.setattr(agent.dht11, "read", broken)
+        item = next(read_sources(config))
+        assert (item["status"], item["values"]) == ("error", {})
+
+
+def test_dht11_failure_does_not_stop_other_sources(monkeypatch, tmp_path):
+    from monitoring import agent
+    reading = tmp_path / "temp"
+    reading.write_text("41000")
+    config = {"device_id": "home", "sources": [
+        {"name": "room", "type": "dht11"},
+        {"name": "cpu", "fields": {"cpu_temperature_c": {"path": str(reading), "scale": .001}}}]}
+    monkeypatch.setattr(agent.dht11, "read", lambda *a, **k: (_ for _ in ()).throw(ValueError("no frame")))
+    items = list(read_sources(config))
+    assert [(i["source"], i["status"]) for i in items] == [("room", "error"), ("cpu", "ok")]
+    assert items[1]["values"] == {"cpu_temperature_c": 41.0}

@@ -15,6 +15,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
+from . import dht11
 from .common import canonical
 from .spool import Spool
 
@@ -43,6 +44,9 @@ def read_sources(config):
     sources = config.get("sources", [dict(name="cpu", fields={
         "cpu_temperature_c": dict(path="/sys/class/thermal/thermal_zone0/temp", scale=0.001)})])
     for source in sources:
+        if source.get("type") == "dht11":
+            yield read_dht11(config, source)
+            continue
         values = {}
         status = "ok"
         for name, channel in source["fields"].items():
@@ -54,6 +58,20 @@ def read_sources(config):
             except (OSError, ValueError):
                 status = "error"
         yield event(config["device_id"], "measurement", source["name"], values, status)
+
+
+def read_dht11(config, source):
+    """A DHT11 on a GPIO line; a frame that never checks out becomes status=error."""
+    try:
+        humidity, temperature = dht11.read(source.get("chip", "/dev/gpiochip0"),
+                                           source.get("line", 119),
+                                           attempts=source.get("attempts", 5))
+    except (OSError, ValueError) as exc:
+        # A missing permission and a bad frame need different fixes; keep them apart.
+        LOG.warning("%s unavailable: %s", source["name"], type(exc).__name__)
+        return event(config["device_id"], "measurement", source["name"], status="error")
+    return event(config["device_id"], "measurement", source["name"],
+                 {"humidity_percent": humidity, "temperature_c": temperature})
 
 
 def capture(config):

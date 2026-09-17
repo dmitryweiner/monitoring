@@ -21,3 +21,12 @@ name = "cpu"
 [sources.fields.cpu_temperature_c]
 path = "/sys/class/thermal/thermal_zone0/temp"
 scale = 0.001
+
+# DHT11 on header pin 22 (PD23); see docs/PINOUT.md. The agent needs access to
+# /dev/gpiochip0 and LimitRTPRIO in its unit, both described there.
+[[sources]]
+name = "room"
+type = "dht11"
+chip = "/dev/gpiochip0"
+line = 119
+attempts = 5
