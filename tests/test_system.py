@@ -360,3 +360,41 @@ def test_photo_thread_starts_after_its_offset():
         stop.set()
     periodic(stop, 600, callback, offset=0.2)
     assert len(calls) == 1 and calls[0] >= 0.2
+
+
+def test_dropped_events_are_logged_with_their_reason(tmp_path, caplog, monkeypatch):
+    import collections
+    import logging
+    import shutil
+    caplog.set_level(logging.WARNING, logger="monitoring.spool")
+    spool = Spool(tmp_path, max_bytes=1800, reserve_bytes=0)
+
+    for i in range(3):
+        spool.enqueue(sample("photo"), jpeg(), now=1000 + i)
+    assert "limit 1800 B" in caplog.text
+    caplog.clear()
+
+    spool.prune(now=1000 + 86400 + 60)
+    assert "older than 86400 s" in caplog.text
+    caplog.clear()
+
+    spool.enqueue(sample(), now=5000)
+    spool.prune(now=1000)
+    assert "the wall clock moved back" in caplog.text
+    caplog.clear()
+
+    assert not spool.enqueue(sample("photo"), b"x" * 2000, now=1000)
+    assert "larger than any event may be" in caplog.text
+    caplog.clear()
+
+    # Too little disk: the queued event is evicted and the new one refused, and
+    # both say how much space was left.
+    roomy = Spool(tmp_path / "disk", reserve_bytes=0)
+    roomy.enqueue(sample(), now=1000)
+    roomy.reserve_bytes = 1024**3
+    usage = collections.namedtuple("usage", "total used free")
+    monkeypatch.setattr(shutil, "disk_usage", lambda path: usage(8 * 1024**3, 0, 700 * 1024**2))
+    assert not roomy.enqueue(sample(), now=1000)
+    assert "dropped 1 queued event(s): free space 700 MiB, reserve 1024 MiB" in caplog.text
+    assert "dropped new measurement event from cpu: free space 700 MiB" in caplog.text
+    assert roomy.status()["queued"] == 0 and roomy.status()["dropped"] == 2

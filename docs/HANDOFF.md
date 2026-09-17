@@ -34,7 +34,12 @@
 | Orange Pi: /var/lib/monitoring-agent/queue.db | Рабочая очередь; не заменять тестовой базой |
 | Orange Pi: /etc/systemd/system/monitoring-agent.service | Служба агента |
 | Orange Pi: /etc/mihomo/config.yaml | Рабочая конфигурация VPN, 0600 root; боевые ключи |
-| Orange Pi: /var/log/monitoring-net-test.log | Отчёты сетевых испытаний, появится после первого прогона |
+| Orange Pi: /var/log/monitoring-net-test.log | Отчёты сетевых испытаний |
+| Orange Pi: /etc/mihomo/config.yaml.bak-20260917-020405 | Конфигурация mihomo до замены другой сессией 17 сентября |
+| Orange Pi: /root/mihomo-backup/ | Копии конфигурации mihomo до правки fake-ip-filter |
+| Orange Pi: /etc/systemd/timesyncd.conf.d/ntp-by-ip.conf | NTP по IP-адресам; fake-hwclock-load замаскирован |
+| Orange Pi: /usr/local/sbin/fan-control.sh | Управление вентилятором по температуре |
+| Orange Pi: /etc/udev/rules.d/99-monitoring-gpio.rules | Доступ группы gpio к gpiochip0 для DHT11 |
 
 Прежние /tmp/monitoring-check, /tmp/monitoring-orange.tar.gz и /tmp/monitoring-apt.log
 к 14 сентября исчезли: содержимое /tmp не переживает перезагрузку. Полный

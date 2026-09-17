@@ -1,11 +1,24 @@
-"""Atomic local queue: small JPEG blobs and metadata share one SQLite transaction."""
+"""Atomic local queue: small JPEG blobs and metadata share one SQLite transaction.
+
+Every event dropped before delivery is logged with its reason. The dropped
+counter alone once rose by 42 overnight, and without a log line there was no
+way to tell whether age, the clock or disk space had caused it.
+"""
 import json
+import logging
 import shutil
 import threading
 import time
 from pathlib import Path
 
 from .common import canonical, database
+
+LOG = logging.getLogger(__name__)
+MIB = 1024**2
+
+
+def _size(value):
+    return f"{value // MIB} MiB" if abs(value) >= MIB else f"{value} B"
 
 
 class Spool:
@@ -27,10 +40,24 @@ class Spool:
                 INSERT OR IGNORE INTO counters VALUES ('dropped', 0);
             """)
 
-    def _drop(self, db, ids):
+    def _drop(self, db, ids, reason):
         if ids:
             db.executemany("DELETE FROM queue WHERE id=?", [(i,) for i in ids])
             db.execute("UPDATE counters SET value=value+? WHERE key='dropped'", (len(ids),))
+            LOG.warning("dropped %d queued event(s): %s", len(ids), reason)
+
+    def _reject(self, db, event, reason):
+        db.execute("UPDATE counters SET value=value+1 WHERE key='dropped'")
+        LOG.warning("dropped new %s event from %s: %s", event["kind"], event["source"], reason)
+
+    def _space(self, total, free, size=0):
+        """Why the queue cannot hold `size` more bytes, or None if it can."""
+        reasons = []
+        if total + size > self.max_bytes:
+            reasons.append(f"queue would hold {_size(total + size)}, limit {_size(self.max_bytes)}")
+        if free - size < self.reserve_bytes:
+            reasons.append(f"free space {_size(free)}, reserve {_size(self.reserve_bytes)}")
+        return "; ".join(reasons) or None
 
     def prune(self, now=None):
         now = time.time() if now is None else now
@@ -38,12 +65,16 @@ class Spool:
             # A large backward clock correction makes age unknowable. Conservatively drop
             # future enqueues; the hard disk quota remains independent of wall-clock time.
             ids = [r[0] for r in db.execute(
-                "SELECT id FROM queue WHERE created<? OR created>?",
-                (now - self.max_age, now + 300))]
-            self._drop(db, ids)
+                "SELECT id FROM queue WHERE created<?", (now - self.max_age,))]
+            self._drop(db, ids, f"older than {self.max_age} s")
+            ids = [r[0] for r in db.execute(
+                "SELECT id FROM queue WHERE created>?", (now + 300,))]
+            self._drop(db, ids, "created in the future: the wall clock moved back")
             rows = list(db.execute("SELECT id,size FROM queue ORDER BY id"))
             total = sum(r[1] for r in rows)
-            deficit = max(0, self.reserve_bytes - shutil.disk_usage(self.directory).free)
+            free = shutil.disk_usage(self.directory).free
+            reason = self._space(total, free)
+            deficit = max(0, self.reserve_bytes - free)
             ids = []
             for row in rows:
                 if total <= self.max_bytes and deficit <= 0:
@@ -51,7 +82,7 @@ class Spool:
                 ids.append(row[0])
                 total -= row[1]
                 deficit -= row[1]
-            self._drop(db, ids)
+            self._drop(db, ids, reason)
 
     def enqueue(self, event, photo=None, now=None):
         encoded = canonical(event)
@@ -60,23 +91,24 @@ class Spool:
             self.prune(now)
             with database(self.path) as db:
                 if size > self.max_bytes or size > 4 * 1024**2 + 65536:
-                    db.execute("UPDATE counters SET value=value+1 WHERE key='dropped'")
+                    self._reject(db, event, f"{size} bytes is larger than any event may be")
                     return False
                 # Evict before writing: never temporarily exceed the configured quota.
                 total = db.execute("SELECT COALESCE(SUM(size),0) FROM queue").fetchone()[0]
                 free = shutil.disk_usage(self.directory).free
+                reason = self._space(total, free, size)
                 rows = iter(db.execute("SELECT id,size FROM queue ORDER BY id").fetchall())
                 dropped = []
                 while total + size > self.max_bytes or free - size < self.reserve_bytes:
                     row = next(rows, None)
                     if row is None:
-                        self._drop(db, dropped)
-                        db.execute("UPDATE counters SET value=value+1 WHERE key='dropped'")
+                        self._drop(db, dropped, reason)
+                        self._reject(db, event, reason)
                         return False
                     dropped.append(row[0])
                     total -= row[1]
                     free += row[1]
-                self._drop(db, dropped)
+                self._drop(db, dropped, reason)
                 db.execute("INSERT OR IGNORE INTO queue(event_id,kind,event,photo,created,size) "
                            "VALUES (?,?,?,?,?,?)", (event["event_id"], event["kind"], encoded,
                                                     photo, time.time() if now is None else now, size))

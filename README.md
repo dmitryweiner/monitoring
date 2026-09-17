@@ -109,6 +109,27 @@ Drop-in collect-only.conf снят 14 сентября: агент собира�
 Старейшие записи удаляются при достижении ограничений, dropped учитывает потери.
 Служебные страницы SQLite и журнал требуют дополнительного места.
 
+## Журналы
+
+Агент пишет в журнал только предупреждения: ошибки отправки, недоступность
+камеры или датчика, отброшенные события очереди с причиной. Пустой журнал
+агента — нормальное состояние. fan-control пишет пороги при старте
+и каждое включение и выключение вентилятора.
+
+```sh
+journalctl -u monitoring-agent -f                     # в реальном времени
+journalctl -u monitoring-agent -n 50 --no-pager       # последние 50 строк
+journalctl -u monitoring-agent --since "1 hour ago"
+journalctl -u fan-control -f
+journalctl -u monitoring-agent -u fan-control -f      # обе службы
+journalctl --list-boots                               # загрузки
+journalctl -b -1 -u monitoring-agent                  # предыдущая загрузка
+journalctl -u monitoring-agent | grep dropped         # потери очереди
+```
+
+Журнал постоянный. Пользователь dmw состоит в группе systemd-journal и читает
+его без sudo; новая группа действует после повторного входа.
+
 ## API v1
 
 Машиночитаемое описание: [cloud/openapi.json](cloud/openapi.json).
