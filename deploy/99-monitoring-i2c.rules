@@ -1,0 +1,6 @@
+# Let the monitoring agent read the BMP280 on /dev/i2c-0 (TWI0, header pins 3
+# and 5). Only this bus: i2c-tools' own 60-i2c-tools.rules gives group i2c every
+# /dev/i2c-*, including the bus of the AXP power controller, and the I2C_RDWR
+# ioctl does not stop a process from addressing a chip a driver already owns.
+# A later rule wins, so bus 0 moves to its own group and the rest stay with i2c.
+SUBSYSTEM=="i2c-dev", KERNEL=="i2c-0", GROUP="sensors", MODE="0660"

@@ -15,7 +15,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-from . import dht11
+from . import bmp280, dht11
 from .common import canonical
 from .spool import Spool
 
@@ -47,6 +47,9 @@ def read_sources(config):
         if source.get("type") == "dht11":
             yield read_dht11(config, source)
             continue
+        if source.get("type") == "bmp280":
+            yield read_bmp280(config, source)
+            continue
         values = {}
         status = "ok"
         for name, channel in source["fields"].items():
@@ -72,6 +75,26 @@ def read_dht11(config, source):
         return event(config["device_id"], "measurement", source["name"], status="error")
     return event(config["device_id"], "measurement", source["name"],
                  {"humidity_percent": humidity, "temperature_c": temperature})
+
+
+def read_bmp280(config, source):
+    """A BMP280 on an I2C bus; one retry covers a transient bus error."""
+    error = None
+    for attempt in range(source.get("attempts", 2)):
+        if attempt:
+            time.sleep(0.5)
+        try:
+            temperature, pressure = bmp280.read(source.get("bus", 0), source.get("address", 0x76))
+        except (PermissionError, FileNotFoundError) as exc:
+            error = exc
+            break   # retrying cannot fix access or a missing bus
+        except (OSError, ValueError) as exc:
+            error = exc
+            continue
+        return event(config["device_id"], "measurement", source["name"],
+                     {"temperature_c": temperature, "pressure_hpa": pressure})
+    LOG.warning("%s unavailable: %s", source["name"], type(error).__name__)
+    return event(config["device_id"], "measurement", source["name"], status="error")
 
 
 def capture(config):

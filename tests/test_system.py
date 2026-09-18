@@ -398,3 +398,30 @@ def test_dropped_events_are_logged_with_their_reason(tmp_path, caplog, monkeypat
     assert "dropped 1 queued event(s): free space 700 MiB, reserve 1024 MiB" in caplog.text
     assert "dropped new measurement event from cpu: free space 700 MiB" in caplog.text
     assert roomy.status()["queued"] == 0 and roomy.status()["dropped"] == 2
+
+
+def test_bmp280_source_reports_values_or_error(monkeypatch):
+    from monitoring import agent
+    config = {"device_id": "home", "sources": [{"name": "barometer", "type": "bmp280"}]}
+    calls = []
+
+    def reading(bus, address):
+        calls.append((bus, address))
+        return 24.9, 1008.4
+    monkeypatch.setattr(agent.bmp280, "read", reading)
+    item = next(read_sources(config))
+    assert (item["source"], item["status"]) == ("barometer", "ok")
+    assert item["values"] == {"temperature_c": 24.9, "pressure_hpa": 1008.4}
+    assert calls == [(0, 0x76)]
+
+    monkeypatch.setattr(agent.time, "sleep", lambda s: None)
+    for failure, tries in ((OSError(5, "I/O error"), 2), (PermissionError(13, "denied"), 1)):
+        calls.clear()
+
+        def broken(bus, address):
+            calls.append((bus, address))
+            raise failure
+        monkeypatch.setattr(agent.bmp280, "read", broken)
+        item = next(read_sources(config))
+        assert (item["status"], item["values"]) == ("error", {})
+        assert len(calls) == tries

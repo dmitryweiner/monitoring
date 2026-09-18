@@ -86,6 +86,11 @@ sudoedit /etc/monitoring/agent.toml
 и `SupplementaryGroups=video gpio` в службе — всё это ставит
 `sudo bash deploy/enable-dht11.sh`. Подробности — [docs/PINOUT.md](docs/PINOUT.md).
 
+Датчик BMP280 описывается источником с `type = "bmp280"`, `bus` и `address`
+и отдаёт `temperature_c` и `pressure_hpa`. Нужны `overlays=i2c0` в
+`/boot/armbianEnv.txt` и доступ к `/dev/i2c-0` через группу `sensors`; правило
+udev, группу и службу ставит `sudo bash deploy/enable-bmp280.sh`.
+
 Камера использует постоянный путь
 /dev/v4l/by-id/usb-Web_Camera_Web_Camera_202512181-video-index0, MJPEG 1280×720.
 ffmpeg пропускает первые 0,5 секунды из-за пустых начальных кадров.

@@ -20,9 +20,12 @@ if [ "$role" = agent ]; then
     apt-get install -y --no-install-recommends python3 ffmpeg v4l-utils
     usermod -a -G video monitoring
     getent group gpio >/dev/null || groupadd --system gpio
-    install -m 0644 "$project_dir/deploy/99-monitoring-gpio.rules" /etc/udev/rules.d/
+    getent group sensors >/dev/null || groupadd --system sensors
+    install -m 0644 "$project_dir/deploy/99-monitoring-gpio.rules" \
+        "$project_dir/deploy/99-monitoring-i2c.rules" /etc/udev/rules.d/
     udevadm control --reload
     udevadm trigger --action=change --subsystem-match=gpio
+    udevadm trigger --action=change --subsystem-match=i2c-dev
     if [ ! -e /etc/monitoring/agent.toml ]; then
         install -m 0640 -g monitoring "$project_dir/deploy/agent.toml.example" /etc/monitoring/agent.toml
     fi

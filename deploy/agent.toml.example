@@ -30,3 +30,11 @@ type = "dht11"
 chip = "/dev/gpiochip0"
 line = 119
 attempts = 5
+
+# BMP280 on I2C bus TWI0, header pins 3 and 5, SDO to ground; see docs/PINOUT.md.
+# Needs overlays=i2c0 in /boot/armbianEnv.txt and access to /dev/i2c-0.
+[[sources]]
+name = "barometer"
+type = "bmp280"
+bus = 0
+address = 0x76
