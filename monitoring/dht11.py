@@ -17,6 +17,7 @@ packages, and python3-libgpiod is not installed. Struct sizes and ioctl numbers
 were checked against /usr/include/linux/gpio.h on the board.
 """
 import argparse
+import collections
 import fcntl
 import gc
 import json
@@ -168,9 +169,13 @@ def fast_cores():
     return {cpu for cpu, capacity in capacities.items() if capacity == best}
 
 
-def read(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
-    """A checksum-valid reading, retrying; the sensor needs about 2 s between reads."""
-    error = None
+def read(chip="/dev/gpiochip0", line=119, attempts=8, pause=2.0):
+    """A checksum-valid reading, retrying; the sensor needs about 2 s between reads.
+
+    The failure names every reason it saw and how often: a run of checksum
+    mismatches points at timing, "no edges" at wiring or power.
+    """
+    reasons = collections.Counter()
     for attempt in range(attempts):
         if attempt:
             time.sleep(pause)
@@ -179,11 +184,12 @@ def read(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
         except (PermissionError, FileNotFoundError):
             raise  # retrying cannot fix access or a missing chip
         except (OSError, ValueError) as exc:
-            error = exc
-    raise ValueError(f"no valid frame in {attempts} attempts: {error}")
+            reasons[str(exc)] += 1
+    summary = "; ".join(f"{count}x {reason}" for reason, count in reasons.most_common())
+    raise ValueError(f"no valid frame in {attempts} attempts: {summary}")
 
 
-def read_isolated(chip="/dev/gpiochip0", line=119, attempts=5, pause=2.0):
+def read_isolated(chip="/dev/gpiochip0", line=119, attempts=8, pause=2.0):
     """read() in a child process, for callers that run other Python threads.
 
     Every sample is an ioctl, and an ioctl releases the GIL. Inside the agent,
@@ -234,7 +240,7 @@ def main():
     parser.add_argument("--raw", action="store_true", help="print edge timing for each try")
     parser.add_argument("--json", action="store_true",
                         help="one reading with retries, as a JSON line (used by the agent)")
-    parser.add_argument("--attempts", type=int, default=5)
+    parser.add_argument("--attempts", type=int, default=8)
     parser.add_argument("--pause", type=float, default=2.0)
     parser.add_argument("--pin", action="store_true", help="run on the fastest cores")
     args = parser.parse_args()

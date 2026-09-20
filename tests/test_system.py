@@ -325,7 +325,7 @@ def test_dht11_source_reports_values_or_error(monkeypatch):
     item = next(read_sources(config))
     assert (item["source"], item["status"]) == ("room", "ok")
     assert item["values"] == {"humidity_percent": 42.5, "temperature_c": 25.0}
-    assert calls == [("/dev/gpiochip0", 119, 5)]
+    assert calls == [("/dev/gpiochip0", 119, 8)]
 
     for failure in (ValueError("checksum mismatch"), PermissionError(13, "denied")):
         def broken(*args, **kwargs):

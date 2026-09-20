@@ -29,7 +29,7 @@ name = "room"
 type = "dht11"
 chip = "/dev/gpiochip0"
 line = 119
-attempts = 5
+attempts = 8
 
 # BMP280 on I2C bus TWI0, header pins 3 and 5, SDO to ground; see docs/PINOUT.md.
 # Needs overlays=i2c0 in /boot/armbianEnv.txt and access to /dev/i2c-0.

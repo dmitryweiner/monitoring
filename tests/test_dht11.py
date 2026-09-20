@@ -116,3 +116,19 @@ def test_setup_errors_are_not_retried(monkeypatch):
 def test_fast_cores_are_real_cpus():
     import os
     assert dht11.fast_cores() <= set(range(os.cpu_count()))
+
+
+def test_failure_names_every_reason_it_saw(monkeypatch):
+    frames = iter([
+        [(0, dht11.EVENT_RISING)],                              # too few pulses
+        frame_edges(bytes([1, 2, 3, 4, 0])),                    # checksum mismatch
+        frame_edges(bytes([1, 2, 3, 4, 0])),                    # and again
+    ])
+    monkeypatch.setattr(dht11, "capture", lambda *a, **k: (None, next(frames)))
+    monkeypatch.setattr(dht11.time, "sleep", lambda seconds: None)
+    with pytest.raises(ValueError) as failure:
+        dht11.read(attempts=3)
+    message = str(failure.value)
+    assert "no valid frame in 3 attempts" in message
+    assert "2x checksum mismatch" in message
+    assert "1x expected 40-42 high pulses, got 0" in message

@@ -68,10 +68,11 @@ def read_dht11(config, source):
     try:
         humidity, temperature = dht11.read_isolated(source.get("chip", "/dev/gpiochip0"),
                                                     source.get("line", 119),
-                                                    attempts=source.get("attempts", 5))
+                                                    attempts=source.get("attempts", 8))
     except (OSError, ValueError) as exc:
-        # A missing permission and a bad frame need different fixes; keep them apart.
-        LOG.warning("%s unavailable: %s", source["name"], type(exc).__name__)
+        # The reason decides the fix, so log it: a missing permission, a bad
+        # frame and a silent line each call for something different.
+        LOG.warning("%s unavailable: %s: %s", source["name"], type(exc).__name__, exc)
         return event(config["device_id"], "measurement", source["name"], status="error")
     return event(config["device_id"], "measurement", source["name"],
                  {"humidity_percent": humidity, "temperature_c": temperature})
@@ -93,7 +94,7 @@ def read_bmp280(config, source):
             continue
         return event(config["device_id"], "measurement", source["name"],
                      {"temperature_c": temperature, "pressure_hpa": pressure})
-    LOG.warning("%s unavailable: %s", source["name"], type(error).__name__)
+    LOG.warning("%s unavailable: %s: %s", source["name"], type(error).__name__, error)
     return event(config["device_id"], "measurement", source["name"], status="error")
 
 
