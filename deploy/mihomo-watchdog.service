@@ -1,0 +1,22 @@
+[Unit]
+Description=Restart mihomo when its tunnel stops carrying traffic
+Documentation=file:/usr/local/sbin/mihomo-watchdog.sh
+After=mihomo.service
+# No BindsTo: a deliberately stopped mihomo would then make every run fail.
+# The script checks whether mihomo is running and stands aside if it is not.
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/mihomo-watchdog.sh
+# One probe, a confirmation probe and a restart fit well inside this.
+TimeoutStartSec=120
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ProtectKernelTunables=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=mihomo-watchdog
+RuntimeDirectoryPreserve=yes
+MemoryMax=32M
+TasksMax=16

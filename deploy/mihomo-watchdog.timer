@@ -1,0 +1,12 @@
+[Unit]
+Description=Check every two minutes that mihomo still carries traffic
+
+[Timer]
+# Late enough after boot that the network and mihomo have settled.
+OnBootSec=3min
+OnUnitActiveSec=2min
+AccuracySec=10s
+Unit=mihomo-watchdog.service
+
+[Install]
+WantedBy=timers.target
