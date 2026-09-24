@@ -8,6 +8,11 @@ After=mihomo.service
 [Service]
 Type=oneshot
 ExecStart=/usr/local/sbin/mihomo-watchdog.sh
+# A check that usually finds nothing should not write anything. systemd's own
+# "Starting"/"Finished" lines are info, so they are filtered out; the script's
+# own output is raised to notice and still reaches the journal.
+LogLevelMax=notice
+SyslogLevel=notice
 # One probe, a confirmation probe and a restart fit well inside this.
 TimeoutStartSec=120
 NoNewPrivileges=yes

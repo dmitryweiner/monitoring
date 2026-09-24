@@ -1,11 +1,14 @@
 [Unit]
-Description=Check every two minutes that mihomo still carries traffic
+Description=Check every ten minutes that mihomo still carries traffic
 
 [Timer]
 # Late enough after boot that the network and mihomo have settled.
 OnBootSec=3min
-OnUnitActiveSec=2min
-AccuracySec=10s
+# Ten minutes, not two: an outage is noticed soon enough while the queue holds a
+# day of data, and the journal is not filled with a check that usually says
+# nothing. Delivery retries on its own in the meantime.
+OnUnitActiveSec=10min
+AccuracySec=30s
 Unit=mihomo-watchdog.service
 
 [Install]
