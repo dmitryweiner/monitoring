@@ -30,7 +30,7 @@
 | Orange Pi: /home/dmw/projects/monitoring | Git checkout, пользователь dmw, origin — тот же GitHub |
 | Orange Pi: /opt/monitoring/monitoring | Установленные модули monitoring/*.py, включая motion.py и audio.py; обновлены 24 сентября |
 | Orange Pi: /etc/monitoring/agent.toml | Рабочая конфигурация с адресом Worker, секциями [attention] и [audio]; рядом agent.toml.bak и agent.toml.bak-20260924 — копии до правок |
-| Orange Pi: ~/monitoring-backup-20260924 | Резервная копия D1 и R2 перед миграцией 0002; частные фото, 0700 |
+| Orange Pi: ~/monitoring-backup-20260924 | Дамп D1 перед миграцией 0002 и закладка Time Travel; 0700. Фото не копировались |
 | Orange Pi: /etc/monitoring/device.token | Тот же токен, что в secrets/device.token; 0600 monitoring:monitoring |
 | Orange Pi: /var/lib/monitoring-agent/queue.db | Рабочая очередь; не заменять тестовой базой |
 | Orange Pi: /etc/systemd/system/monitoring-agent.service | Служба агента |
