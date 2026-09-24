@@ -2,6 +2,7 @@ import io
 import json
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from uuid import uuid4
 
 import pytest
@@ -294,6 +295,24 @@ def test_backup_rejects_object_keys_that_escape_the_directory():
     for key in ["/etc/passwd", "../../secrets/admin.key", "home/../../x.jpg", "home\\x.jpg", ""]:
         with pytest.raises(ValueError):
             safe_key(key)
+
+
+def test_backup_database_only_skips_r2(tmp_path, capsys):
+    script = load_deploy_script("backup-cloud")
+    calls = []
+
+    def wrangler(cloud_dir, *args, capture=True):
+        calls.append(args[:3])
+        if args[:2] == ("d1", "export"):
+            Path(args[args.index("--output") + 1]).write_text("CREATE TABLE events (id);\n")
+        return ""
+    script.wrangler = wrangler
+    script.backup(tmp_path, "db", "bucket", tmp_path / "out", database_only=True)
+    assert calls == [("d1", "export", "db")]       # no key query, no object download
+    manifest = json.loads((tmp_path / "out" / "manifest.json").read_text())
+    assert manifest["objects"] == [] and manifest["objects_skipped"] is True
+    assert not (tmp_path / "out" / "r2").exists()
+    assert "skipped (--database-only)" in capsys.readouterr().out
 
 
 def test_restore_comparison_ignores_json_number_spelling():

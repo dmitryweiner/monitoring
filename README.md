@@ -221,8 +221,14 @@ Cloudflare. Расход запросов и CPU требует облачног
 
 ```sh
 python3 deploy/backup-cloud.py --out ~/monitoring-backup-$(date -u +%Y%m%d)
+python3 deploy/backup-cloud.py --database-only --out ~/monitoring-db-$(date -u +%Y%m%d)
 python3 deploy/restore-cloud.py --backup ~/monitoring-backup-YYYYMMDD   --database home-monitoring-restore-test   --bucket home-monitoring-restore-test-photos --create
 ```
+
+`--database-only` снимает только D1: около минуты вместо нескольких часов,
+потому что фото и аудио качаются по одному вызову wrangler на объект. Важна база
+измерений; фото и аудио владелец резервировать не требует. После восстановления из такой
+копии строки фото и аудио остаются без объектов, и Worker отвечает на них 503.
 
 Копия содержит частные фотографии, аудиозаписи и хеши сессий: каталог создаётся с правами 0700,
 файлы 0600. Хранить защищённо и удалять старые копии по местной политике.

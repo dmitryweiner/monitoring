@@ -120,7 +120,12 @@ def main():
         sys.exit(f"restore failed: {error}")
     if failures:
         sys.exit("VERIFY FAILED:\n  " + "\n  ".join(failures))
-    print("PASS: D1 tables and R2 objects match the backup")
+    if manifest.get("objects_skipped"):
+        print("PASS: D1 tables match the backup")
+        print("note: made with --database-only; photo and audio rows have no R2 objects,\n"
+              "      and the Worker answers 503 for them")
+    else:
+        print("PASS: D1 tables and R2 objects match the backup")
 
 
 if __name__ == "__main__":

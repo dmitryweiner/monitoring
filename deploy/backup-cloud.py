@@ -9,6 +9,9 @@ Object keys come from D1, which is the index the Worker reads photos through.
 Wrangler cannot list a bucket, so an object with no D1 row is invisible here and
 is not backed up; the Worker never serves such an object either. Finding orphans
 needs an R2 API token and the S3 ListObjectsV2 call, which this script does not use.
+
+--database-only skips R2: the measurements are what matters, while photos and
+audio are expendable and take hours to copy, one wrangler call per object.
 """
 import argparse
 import hashlib
@@ -74,7 +77,7 @@ def config_defaults(cloud_dir):
     return config["d1_databases"][0]["database_name"], config["r2_buckets"][0]["bucket_name"]
 
 
-def backup(cloud_dir, database, bucket, out):
+def backup(cloud_dir, database, bucket, out, database_only=False):
     out.mkdir(parents=True, exist_ok=True)
     out.chmod(0o700)
     dump = out / "d1.sql"
@@ -83,9 +86,10 @@ def backup(cloud_dir, database, bucket, out):
 
     objects = []
     photos = out / "r2"
-    for row in paged(cloud_dir, database,
+    rows = [] if database_only else paged(cloud_dir, database,
                      "SELECT object_key, bytes, state FROM events "
-                     "WHERE object_key IS NOT NULL ORDER BY object_key"):
+                     "WHERE object_key IS NOT NULL ORDER BY object_key")
+    for row in rows:
         key = safe_key(row["object_key"])
         target = photos / key
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -100,12 +104,15 @@ def backup(cloud_dir, database, bucket, out):
 
     manifest = {"database": database, "bucket": bucket,
                 "d1": {"bytes": dump.stat().st_size, "sha256": digest(dump)},
-                "objects": objects}
+                "objects": objects, "objects_skipped": database_only}
     path = out / "manifest.json"
     path.write_text(json.dumps(manifest, indent=1, sort_keys=True) + "\n")
     path.chmod(0o600)
     print(f"D1 dump: {manifest['d1']['bytes']} bytes")
-    print(f"R2 objects: {len(objects)}, {sum(o['bytes'] for o in objects)} bytes")
+    if database_only:
+        print("R2 objects: skipped (--database-only)")
+    else:
+        print(f"R2 objects: {len(objects)}, {sum(o['bytes'] for o in objects)} bytes")
     pending = [o["key"] for o in objects if o["state"] != "ready"]
     if pending:
         print(f"note: {len(pending)} object(s) still pending in D1")
@@ -120,11 +127,14 @@ def main():
     parser.add_argument("--cloud-dir", type=Path, default=default_cloud)
     parser.add_argument("--database")
     parser.add_argument("--bucket")
+    parser.add_argument("--database-only", action="store_true",
+                        help="export D1 only; skip photos and audio in R2")
     args = parser.parse_args()
     os.umask(0o077)
     database, bucket = config_defaults(args.cloud_dir)
     try:
-        backup(args.cloud_dir, args.database or database, args.bucket or bucket, args.out)
+        backup(args.cloud_dir, args.database or database, args.bucket or bucket, args.out,
+               args.database_only)
     except (RuntimeError, ValueError) as error:
         sys.exit(f"backup failed: {error}")
 
