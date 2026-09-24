@@ -15,7 +15,7 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-from . import bmp280, dht11
+from . import audio, bmp280, dht11, motion
 from .common import canonical
 from .spool import Spool
 
@@ -159,13 +159,15 @@ class Uploader:
             self.spool.acknowledge(acknowledged)
             if len(acknowledged) != len(sent):
                 rejected = True
-        for metadata, photo in self.spool.batch("photo", 1):
-            result = self.request("/v1/photos", photo, {"Content-Type": "image/jpeg",
-                                  "X-Event": canonical(metadata)})
-            if result["event_id"] == metadata["event_id"] and result["status"] in {"stored", "duplicate", "expired"}:
-                self.spool.acknowledge([metadata["event_id"]])
-            else:
-                rejected = True
+        for kind, path, content_type in (("photo", "/v1/photos", "image/jpeg"),
+                                         ("audio", "/v1/audio", "audio/ogg")):
+            for metadata, blob in self.spool.batch(kind, 1):
+                result = self.request(path, blob, {"Content-Type": content_type,
+                                      "X-Event": canonical(metadata)})
+                if result["event_id"] == metadata["event_id"] and result["status"] in {"stored", "duplicate", "expired"}:
+                    self.spool.acknowledge([metadata["event_id"]])
+                else:
+                    rejected = True
         if rejected:
             raise ValueError("server rejected some events")
 
@@ -183,6 +185,136 @@ def periodic(stop, interval, callback, offset=0):
         stop.wait(max(1, interval - (time.monotonic() - started)))
 
 
+class Camera:
+    """Photos at the normal pace, or every minute while the picture keeps changing.
+
+    Each photo is compared with the one before it, brightness aside. A change above
+    the threshold raises attention; two quiet photos in a row lower it again. While
+    attention is raised the microphone records, and each minute that holds sound
+    above the noise floor is queued as an Ogg/Opus clip.
+    """
+
+    def __init__(self, config, spool, listen=True):
+        self.config, self.spool = config, spool
+        self.camera = config.get("camera", {})
+        self.options = config.get("attention", {})
+        self.attention = motion.Attention(self.options.get("change_threshold", 0.10),
+                                          self.options.get("calm_frames", 2))
+        self.previous = None
+        self.sound = config.get("audio", {})
+        self.recorder = None
+        if listen and self.options.get("enabled", True) and self.sound.get("enabled", True):
+            self.recorder = audio.Recorder(self.sound.get("device", "hw:CARD=Camera,DEV=0"))
+        self.clip_started = None
+
+    @property
+    def alert(self):
+        return self.attention.alert
+
+    def interval(self):
+        if self.alert:
+            return self.options.get("interval_seconds", 60)
+        return self.config.get("interval_seconds", 600)
+
+    def compare(self, jpeg):
+        try:
+            current = motion.thumbnail(jpeg)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            LOG.warning("photo comparison unavailable")
+            return None
+        previous, self.previous = self.previous, current
+        if previous is None:
+            return None
+        return motion.changed_fraction(previous, current, self.options.get("pixel_threshold", 0.5))
+
+    def shot(self):
+        if not self.camera.get("enabled", True):
+            return
+        metadata = event(self.config["device_id"], "photo", "camera")
+        try:
+            jpeg = capture(self.config)
+        except (OSError, ValueError, subprocess.SubprocessError):
+            self.spool.enqueue(event(self.config["device_id"], "measurement", "camera", status="error"))
+            LOG.warning("camera unavailable; measurements continue")
+            # A silent camera is no evidence of change: let raised attention run out.
+            self.attention.observe(None)
+        else:
+            fraction = self.compare(jpeg) if self.options.get("enabled", True) else None
+            was_alert = self.alert
+            self.attention.observe(fraction)
+            if fraction is not None:
+                metadata["values"]["changed_percent"] = round(fraction * 100, 1)
+            # The photo that raised attention carries the flag, and so does the last one of it.
+            metadata["values"]["attention"] = int(self.alert or was_alert)
+            self.spool.enqueue(metadata, jpeg)
+        self.listen()
+
+    def listen(self):
+        if self.recorder is None:
+            return
+        if self.alert:
+            if not self.recorder.running:
+                if self.clip_started is not None:
+                    self.keep(self.recorder.stop())   # the stream died: keep what it heard
+                self.clip_started = time.time()
+                self.recorder.start()
+                return
+            started, self.clip_started = self.clip_started, time.time()
+            self.keep(self.recorder.clip(), started)
+        elif self.clip_started is not None:
+            self.close()
+
+    def keep(self, pcm, started=None):
+        started = self.clip_started if started is None else started
+        seconds = len(pcm) / audio.BYTES_PER_SECOND
+        if seconds < 1:
+            if started is not None and time.time() - started > 5:
+                self.spool.enqueue(event(self.config["device_id"], "measurement", "microphone",
+                                         status="error"))
+                LOG.warning("microphone unavailable")
+            return
+        heard, peak = audio.audible(pcm, self.sound.get("threshold_dbfs", -30.0),
+                                    self.sound.get("min_windows", 3))
+        if not heard:
+            return
+        try:
+            clip = audio.encode(pcm, self.sound.get("bitrate", "16k"))
+        except (OSError, ValueError, subprocess.SubprocessError):
+            LOG.warning("audio encoding failed")
+            return
+        metadata = event(self.config["device_id"], "audio", "microphone",
+                         {"duration_seconds": round(seconds, 1), "peak_dbfs": round(peak, 1)})
+        if started is not None:
+            metadata["observed_at"] = started
+        self.spool.enqueue(metadata, clip)
+
+    def close(self):
+        if self.recorder is not None and self.clip_started is not None:
+            self.keep(self.recorder.stop())
+            self.clip_started = None
+
+
+def camera_loop(stop, camera, offset):
+    """Photos on slots `offset` + k·step from one fixed start.
+
+    The attention interval divides the normal one, so every slot keeps the same
+    distance from the sensor reads at the start of each measurement cycle.
+    """
+    due = time.monotonic() + offset
+    try:
+        while not stop.wait(max(0, due - time.monotonic())):
+            try:
+                camera.shot()
+            except Exception as exc:
+                LOG.warning("task failed: %s", type(exc).__name__)
+            step = camera.interval()
+            due += step
+            while due <= time.monotonic():
+                due += step     # no catch-up storm after a stall or suspension
+    finally:
+        camera.close()
+
+
 def run(config, once=False, collect_only=False):
     spool = Spool(config["state_dir"], **config.get("queue", {}))
     stop = threading.Event()
@@ -194,19 +326,11 @@ def run(config, once=False, collect_only=False):
             spool.enqueue(sample)
         spool.enqueue(event(config["device_id"], "measurement", "agent", spool.status()))
 
-    def photo():
-        if not config.get("camera", {}).get("enabled", True):
-            return
-        metadata = event(config["device_id"], "photo", "camera")
-        try:
-            spool.enqueue(metadata, capture(config))
-        except (OSError, ValueError, subprocess.SubprocessError):
-            spool.enqueue(event(config["device_id"], "measurement", "camera", status="error"))
-            LOG.warning("camera unavailable; measurements continue")
+    camera = Camera(config, spool, listen=not once)
 
     if once:
         measurements()
-        photo()
+        camera.shot()
         if not collect_only:
             Uploader(config, spool).send_once()
         print(canonical(spool.status()))
@@ -217,7 +341,7 @@ def run(config, once=False, collect_only=False):
     # them clear of the sensor reads, which a loaded CPU makes fail.
     photo_offset = config.get("camera", {}).get("offset_seconds", 30)
     threads = [threading.Thread(target=periodic, args=(stop, interval, measurements), daemon=True),
-               threading.Thread(target=periodic, args=(stop, interval, photo, photo_offset), daemon=True)]
+               threading.Thread(target=camera_loop, args=(stop, camera, photo_offset), daemon=True)]
     threads.append(threading.Thread(target=periodic, args=(stop, 60, spool.prune), daemon=True))
     for thread in threads:
         thread.start()
@@ -252,6 +376,9 @@ def main():
         config = tomllib.load(stream)
     if config.get("interval_seconds", 600) < 10:
         parser.error("interval_seconds must be at least 10")
+    fast = config.get("attention", {}).get("interval_seconds", 60)
+    if fast < 10 or config.get("interval_seconds", 600) % fast:
+        parser.error("attention.interval_seconds must be at least 10 and divide interval_seconds")
     run(config, args.once, args.collect_only)
 
 

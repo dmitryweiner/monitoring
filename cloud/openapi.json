@@ -3,7 +3,7 @@
   "info": {
     "title": "Home monitoring API",
     "version": "1.0.0",
-    "description": "HTTPS; Unix seconds UTC. observed_at — время измерения, received_at — приём. Фото 30 дней, измерения 90 дней. См. README.md."
+    "description": "HTTPS; Unix seconds UTC. observed_at — время измерения, received_at — приём. Фото и аудио 30 дней, измерения 90 дней. См. README.md."
   },
   "paths": {
     "/healthz": {
@@ -663,6 +663,322 @@
         ]
       }
     },
+    "/v1/audio": {
+      "get": {
+        "summary": "История audio",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Page"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "start",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "end",
+            "in": "query",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "name": "source",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "pattern": "^[a-zA-Z0-9_-]{1,64}$"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 1000,
+              "default": 100
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 256
+            }
+          }
+        ],
+        "description": "Упорядочено по (observed_at,event_id). Ответ items и next_cursor. limit 1–1000; повторять те же фильтры при продолжении."
+      },
+      "post": {
+        "summary": "Ogg/Opus до 4 MiB",
+        "security": [
+          {
+            "device": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Успех",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PhotoAck"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Некорректный JSON или заголовки аудио",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Тело запроса превышает лимит",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Некорректные параметры или событие",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "X-Event",
+            "in": "header",
+            "required": true,
+            "description": "JSON по схеме AudioEvent: kind=audio, status=ok; максимум 8192 символа.",
+            "schema": {
+              "type": "string",
+              "maxLength": 8192
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "audio/ogg": {
+              "schema": {
+                "type": "string",
+                "format": "binary"
+              }
+            }
+          }
+        },
+        "description": "Клип режима повышенного внимания, начинается с OggS. observed_at — начало клипа; values: duration_seconds, peak_dbfs. Ответ: event_id, status (stored/duplicate/expired/invalid_time/conflict). Фото и аудио вместе ограничены 6 GB, каждого вида — 1600 в сутки UTC."
+      }
+    },
+    "/v1/audio/{event_id}": {
+      "get": {
+        "summary": "Получить закрытый Ogg/Opus",
+        "security": [
+          {
+            "session": []
+          },
+          {
+            "cookie": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Ogg/Opus, Cache-Control: no-store",
+            "content": {
+              "audio/ogg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Нет действующей авторизации",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Квота/частота запросов, Retry-After",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            },
+            "headers": {
+              "Retry-After": {
+                "schema": {
+                  "type": "string",
+                  "const": "60"
+                },
+                "description": "Задержка перед повтором в секундах"
+              }
+            }
+          },
+          "503": {
+            "description": "Временная ошибка, повторить позже",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Фото не найдено",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
+      }
+    },
     "/v1/session": {
       "post": {
         "summary": "Получить сессию на 7 дней",
@@ -1022,7 +1338,8 @@
           "kind": {
             "enum": [
               "measurement",
-              "photo"
+              "photo",
+              "audio"
             ]
           },
           "source": {
@@ -1350,6 +1667,23 @@
             }
           }
         }
+      },
+      "AudioEvent": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Event"
+          },
+          {
+            "properties": {
+              "kind": {
+                "const": "audio"
+              },
+              "status": {
+                "const": "ok"
+              }
+            }
+          }
+        ]
       }
     }
   }

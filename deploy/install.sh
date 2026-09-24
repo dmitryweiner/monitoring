@@ -18,7 +18,7 @@ fi
 apt-get update
 if [ "$role" = agent ]; then
     apt-get install -y --no-install-recommends python3 ffmpeg v4l-utils
-    usermod -a -G video monitoring
+    usermod -a -G video,audio monitoring
     getent group gpio >/dev/null || groupadd --system gpio
     getent group sensors >/dev/null || groupadd --system sensors
     install -m 0644 "$project_dir/deploy/99-monitoring-gpio.rules" \

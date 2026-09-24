@@ -8,7 +8,8 @@ interface Env {
   LOGIN_LIMIT: RateLimit;
   API_LIMIT: RateLimit;
 }
-type Kind = "measurement" | "photo";
+type Kind = "measurement" | "photo" | "audio";
+type Media = Exclude<Kind, "measurement">;
 interface Event {
   schema_version: 1; device_id: string; event_id: string; observed_at: number;
   kind: Kind; source: string; status: "ok" | "error";
@@ -20,7 +21,12 @@ interface Row {
   bytes: number; state: "pending" | "ready" | "deleting";
 }
 const DAY = 86400;
-const MAX_PHOTO = 4 * 1024 * 1024;
+const MAX_OBJECT = 4 * 1024 * 1024;
+// Private R2 objects: each kind's upload path, content type and object suffix.
+const MEDIA: Record<Media, { path: string; type: string; suffix: string }> = {
+  photo: { path: "/v1/photos", type: "image/jpeg", suffix: "jpg" },
+  audio: { path: "/v1/audio", type: "audio/ogg", suffix: "ogg" },
+};
 const encoder = new TextEncoder();
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const name = /^[a-zA-Z0-9_-]{1,64}$/;
@@ -111,9 +117,10 @@ async function seen(env: Env) {
   await env.DB.prepare("INSERT INTO devices VALUES (?,?) ON CONFLICT(id) DO UPDATE SET last_seen=excluded.last_seen")
     .bind(env.DEVICE_ID, now()).run();
 }
+function retention(kind: Kind) { return kind === "measurement" ? 90 : 30; }
 function ageStatus(e: Event) {
   if (e.observed_at > now() + 300) return "invalid_time";
-  if (e.observed_at < now() - (e.kind === "photo" ? 30 : 90) * DAY) return "expired";
+  if (e.observed_at < now() - retention(e.kind) * DAY) return "expired";
   return null;
 }
 async function reserve(env: Env, e: Event, fingerprint: string, bytes: number, key: string | null) {
@@ -121,7 +128,7 @@ async function reserve(env: Env, e: Event, fingerprint: string, bytes: number, k
     await env.DB.prepare(`INSERT OR IGNORE INTO events
       (device,id,observed,received,kind,source,payload,fingerprint,object_key,bytes,state)
       VALUES (?,?,?,?,?,?,?,?,?,?,?)`).bind(e.device_id, e.event_id, e.observed_at, now(), e.kind,
-      e.source, canonical(e), fingerprint, key, bytes, e.kind === "photo" ? "pending" : "ready").run();
+      e.source, canonical(e), fingerprint, key, bytes, e.kind === "measurement" ? "ready" : "pending").run();
   } catch (error) {
     if (String(error).includes("monitor_quota")) fail(429, "storage or daily upload quota exceeded");
     throw error;
@@ -139,25 +146,26 @@ async function putMeasurement(env: Env, e: Event) {
   const row = await reserve(env, e, fingerprint, 0, null);
   return row.fingerprint === fingerprint ? "stored" : "conflict";
 }
-async function putPhoto(env: Env, e: Event, bytes: Uint8Array) {
+async function putObject(env: Env, e: Event, bytes: Uint8Array) {
   const age = ageStatus(e);
   if (age) return age;
   const contentHash = await hash(bytes);
   const fingerprint = await hash(canonical(e) + ":" + contentHash);
-  const key = `${e.device_id}/${e.event_id}.jpg`;
+  const media = MEDIA[e.kind as Media];
+  const key = `${e.device_id}/${e.event_id}.${media.suffix}`;
   // Reserve the immutable fingerprint in D1 BEFORE writing R2. Concurrent conflicting
   // uploads can never overwrite the accepted object's contents.
   const row = await reserve(env, e, fingerprint, bytes.length, key);
   if (row.fingerprint !== fingerprint) return "conflict";
-  if (row.state === "deleting") fail(503, "photo is being reconciled; retry");
+  if (row.state === "deleting") fail(503, "object is being reconciled; retry");
   const stored = await env.PHOTOS.head(key);
   if (!stored || stored.customMetadata?.fingerprint !== fingerprint) {
-    await env.PHOTOS.put(key, bytes, { httpMetadata: {contentType: "image/jpeg"},
+    await env.PHOTOS.put(key, bytes, { httpMetadata: {contentType: media.type},
       customMetadata: { fingerprint, observed_at: String(e.observed_at) }, sha256: contentHash });
   }
   const update = await env.DB.prepare("UPDATE events SET state='ready' WHERE device=? AND id=? AND fingerprint=? AND state<>'deleting'")
     .bind(e.device_id, e.event_id, fingerprint).run();
-  if (!update.meta.changes) fail(503, "photo metadata changed; retry");
+  if (!update.meta.changes) fail(503, "object metadata changed; retry");
   return row.state === "ready" ? "duplicate" : "stored";
 }
 function parseNumber(url: URL, key: string, fallback: number) {
@@ -167,7 +175,7 @@ function parseNumber(url: URL, key: string, fallback: number) {
   return value;
 }
 function timeRange(url: URL, kind: Kind) {
-  const start = Math.max(parseNumber(url,"start",0), now()-(kind === "photo" ? 30 : 90)*DAY);
+  const start = Math.max(parseNumber(url,"start",0), now()-retention(kind)*DAY);
   const end = parseNumber(url,"end",now()+300);
   if (end < start || end-start > 91*DAY) fail(422,"invalid time range");
   return { start, end };
@@ -240,9 +248,10 @@ async function route(req: Request, env: Env): Promise<Response> {
     response.headers.set("Set-Cookie",`monitor_session=${token}; Path=/; Max-Age=${7*DAY}; Secure; HttpOnly; SameSite=Strict`);
     return response;
   }
-  if (req.method === "POST" && ["/v1/measurements","/v1/photos"].includes(path)) {
+  const upload = (Object.keys(MEDIA) as Media[]).find(kind => MEDIA[kind].path === path);
+  if (req.method === "POST" && (path === "/v1/measurements" || upload)) {
     await deviceAuth(req,env);
-    if (path.endsWith("measurements")) {
+    if (!upload) {
       const payload = await readJSON(req);
       if (!Array.isArray(payload?.events) || payload.events.length < 1 || payload.events.length > 12) fail(422,"invalid batch");
       const results = [];
@@ -257,17 +266,19 @@ async function route(req: Request, env: Env): Promise<Response> {
       return json({results});
     }
     const metadata = req.headers.get("X-Event") || "";
-    if (metadata.length > 8192 || req.headers.get("Content-Type") !== "image/jpeg") fail(400,"invalid photo headers");
+    if (metadata.length > 8192 || req.headers.get("Content-Type") !== MEDIA[upload].type) fail(400,`invalid ${upload} headers`);
     let raw: unknown;
     try {raw=JSON.parse(metadata);} catch {fail(422,"invalid metadata");}
-    const event = validate(raw,env.DEVICE_ID,"photo");
-    if (event.status !== "ok") fail(422,"invalid photo status");
-    const bytes = await body(req,MAX_PHOTO);
-    // Keep image processing off the 10 ms CPU-budget Worker. Check JPEG framing;
-    // the agent/ffmpeg produces the actual image, and output is never served as HTML.
-    if (bytes.length < 4 || bytes[0]!==255 || bytes[1]!==216 || bytes.at(-2)!==255 || bytes.at(-1)!==217)
+    const event = validate(raw,env.DEVICE_ID,upload);
+    if (event.status !== "ok") fail(422,`invalid ${upload} status`);
+    const bytes = await body(req,MAX_OBJECT);
+    // Keep media processing off the 10 ms CPU-budget Worker. Check framing only;
+    // the agent/ffmpeg produces the actual content, and output is never served as HTML.
+    if (upload === "photo" && (bytes.length < 4 || bytes[0]!==255 || bytes[1]!==216 || bytes.at(-2)!==255 || bytes.at(-1)!==217))
       fail(422,"invalid JPEG framing");
-    const status = await putPhoto(env,event,bytes);
+    if (upload === "audio" && (bytes.length < 28 || new TextDecoder().decode(bytes.subarray(0,4)) !== "OggS"))
+      fail(422,"invalid Ogg framing");
+    const status = await putObject(env,event,bytes);
     await seen(env);
     return json({event_id:event.event_id,status});
   }
@@ -279,24 +290,26 @@ async function route(req: Request, env: Env): Promise<Response> {
   if (req.method !== "GET") fail(405,"method not allowed");
   if (path === "/v1/measurements") return page(env,url,"measurement");
   if (path === "/v1/photos") return page(env,url,"photo");
+  if (path === "/v1/audio") return page(env,url,"audio");
   if (path === "/v1/measurements/aggregate") return aggregate(env,url);
   if (path === "/v1/latest") {
     const {results} = await env.DB.prepare(`SELECT e.* FROM latest l JOIN events e
       ON e.device=l.device AND e.id=l.id WHERE l.device=? AND e.state='ready'
-      AND ((e.kind='photo' AND e.observed>=?) OR (e.kind='measurement' AND e.observed>=?))`)
+      AND ((e.kind IN ('photo','audio') AND e.observed>=?) OR (e.kind='measurement' AND e.observed>=?))`)
       .bind(env.DEVICE_ID,now()-30*DAY,now()-90*DAY).all<Row>();
     const seen = await env.DB.prepare("SELECT last_seen FROM devices WHERE id=?").bind(env.DEVICE_ID).first<{last_seen:number}>();
     return json({device_id:env.DEVICE_ID,last_seen:seen?.last_seen || null,
       items:results.map(row=>({...JSON.parse(row.payload),received_at:row.received}))});
   }
-  if (path.startsWith("/v1/photos/")) {
-    const id = path.slice("/v1/photos/".length);
-    if (!uuid.test(id)) fail(404,"photo not found");
+  for (const kind of Object.keys(MEDIA) as Media[]) {
+    if (!path.startsWith(MEDIA[kind].path + "/")) continue;
+    const id = path.slice(MEDIA[kind].path.length + 1);
+    if (!uuid.test(id)) fail(404,`${kind} not found`);
     const row = await getRow(env,id.toLowerCase());
-    if (!row || row.kind!=="photo" || row.state!=="ready" || row.observed < now()-30*DAY) fail(404,"photo not found");
-    const photo = await env.PHOTOS.get(row.object_key!);
-    if (!photo) fail(503,"photo temporarily unavailable");
-    return new Response(photo.body,{headers:{"Content-Type":"image/jpeg"}});
+    if (!row || row.kind!==kind || row.state!=="ready" || row.observed < now()-30*DAY) fail(404,`${kind} not found`);
+    const object = await env.PHOTOS.get(row.object_key!);
+    if (!object) fail(503,`${kind} temporarily unavailable`);
+    return new Response(object.body,{headers:{"Content-Type":MEDIA[kind].type}});
   }
   fail(404,"not found");
 }
@@ -308,7 +321,7 @@ export async function cleanup(env: Env, timestamp=now()) {
     env.DB.prepare("DELETE FROM sessions WHERE expires<=?").bind(timestamp),
     env.DB.prepare("DELETE FROM daily WHERE day<?").bind(Math.floor(timestamp/DAY)-2)
   ]);
-  const {results} = await env.DB.prepare(`SELECT * FROM events WHERE kind='photo' AND
+  const {results} = await env.DB.prepare(`SELECT * FROM events WHERE kind IN ('photo','audio') AND
     (observed<? OR (state='pending' AND received<?) OR state='deleting') LIMIT 6`)
     .bind(timestamp-30*DAY,timestamp-DAY).all<Row>();
   for (const row of results) {
@@ -332,7 +345,7 @@ export default {
     try { response=await route(req,env); }
     catch (error) {
       response=error instanceof HttpError ? json({detail:error.message},error.status) : json({detail:"temporarily unavailable"},503);
-      // Never log request headers, session keys, configuration or photographs.
+      // Never log request headers, session keys, configuration, photographs or audio.
     }
     response.headers.set("Cache-Control","no-store");
     response.headers.set("X-Content-Type-Options","nosniff");

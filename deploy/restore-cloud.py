@@ -26,6 +26,7 @@ digest, paged, safe_key, wrangler = (backup_cloud.digest, backup_cloud.paged,
                                      backup_cloud.safe_key, backup_cloud.wrangler)
 
 TABLES = ["events", "latest", "sessions", "devices", "usage", "daily", "maintenance"]
+CONTENT_TYPES = {".jpg": "image/jpeg", ".ogg": "audio/ogg"}
 
 
 def normalise(rows):
@@ -73,7 +74,7 @@ def restore(cloud_dir, backup_dir, database, bucket, create):
         if digest(source) != item["sha256"]:
             raise ValueError(f"{key} does not match the manifest checksum")
         wrangler(cloud_dir, "r2", "object", "put", f"{bucket}/{key}", "--remote",
-                 "--file", str(source), "--content-type", "image/jpeg")
+                 "--file", str(source), "--content-type", CONTENT_TYPES[Path(key).suffix])
     return manifest, dump
 
 

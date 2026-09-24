@@ -16,6 +16,28 @@ size = "1280x720"
 input_format = "mjpeg"
 timeout_seconds = 30
 
+# Raised attention: a photo that differs from the previous one by more than
+# change_threshold (a share of pixels, brightness aside) switches photos to every
+# interval_seconds, which must divide the top-level interval_seconds; calm_frames
+# quiet photos in a row switch back. pixel_threshold is in standard deviations.
+[attention]
+enabled = true
+interval_seconds = 60
+change_threshold = 0.10
+pixel_threshold = 0.5
+calm_frames = 2
+
+# While attention is raised the microphone records; each minute holding at least
+# min_windows 100 ms windows above threshold_dbfs is sent as Ogg/Opus. The camera
+# microphone hisses at about -42.5 dBFS in a quiet room. The board's own codec is
+# hw:CARD=sndi2s4,DEV=0, but it read -80 dBFS: its analogue input looks unconnected.
+[audio]
+enabled = true
+device = "hw:CARD=Camera,DEV=0"
+threshold_dbfs = -30.0
+min_windows = 3
+bitrate = "16k"
+
 [[sources]]
 name = "cpu"
 [sources.fields.cpu_temperature_c]

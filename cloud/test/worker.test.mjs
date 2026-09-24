@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
 
 const digest = s => createHash('sha256').update(s).digest('hex');
@@ -23,6 +23,10 @@ async function upload(e) {
 async function uploadPhoto(e, bytes=photo) {
   return request('/v1/photos',{method:'POST',headers:{...headers,'Content-Type':'image/jpeg','X-Event':JSON.stringify(e)},body:bytes});
 }
+const clip = new Uint8Array([...new TextEncoder().encode('OggS'),...new Array(40).fill(0)]); // framing fixture
+async function uploadAudio(e, bytes=clip, type='audio/ogg') {
+  return request('/v1/audio',{method:'POST',headers:{...headers,'Content-Type':type,'X-Event':JSON.stringify(e)},body:bytes});
+}
 async function login() {
   const res = await request('/v1/session',{method:'POST',body:JSON.stringify({key:admin})});
   assert.equal(res.status,200,await res.clone().text());
@@ -43,8 +47,10 @@ before(async()=>{
       API_LIMIT:{namespace_id:'2',simple:{limit:10000,period:60}}}}));
   }
   db = await mf.getD1Database('DB'); bucket = await mf.getR2Bucket('PHOTOS');
-  const sql = await readFile('migrations/0001_initial.sql','utf8');
-  for(const statement of sql.split('-- statement-breakpoint')) await db.prepare(statement.trim()).run();
+  for(const file of (await readdir('migrations')).filter(f=>f.endsWith('.sql')).sort()) {
+    const sql = await readFile('migrations/'+file,'utf8');
+    for(const statement of sql.split('-- statement-breakpoint')) await db.prepare(statement.trim()).run();
+  }
 });
 after(async()=>{await mf?.dispose();});
 
@@ -116,7 +122,7 @@ test('persistent quotas do not charge retries twice',async()=>{
   const before=await db.prepare('SELECT photo_bytes FROM usage WHERE id=1').first();
   await uploadPhoto(e);
   assert.deepEqual(await db.prepare('SELECT photo_bytes FROM usage WHERE id=1').first(),before);
-  await db.prepare("INSERT INTO daily VALUES (?,'photo',300) ON CONFLICT(day,kind) DO UPDATE SET count=300")
+  await db.prepare("INSERT INTO daily VALUES (?,'photo',1600) ON CONFLICT(day,kind) DO UPDATE SET count=1600")
     .bind(Math.floor(Date.now()/1000/day)).run();
   assert.equal((await uploadPhoto(event('photo'))).status,429);
   assert.equal((await uploadPhoto(e)).status,200);
@@ -161,4 +167,39 @@ test('measurement daily and photo byte quotas preserve retries and recover',asyn
   }
   assert.equal((await (await upload(event())).json()).results[0].status,'stored');
   assert.equal((await (await uploadPhoto(event('photo'))).json()).status,'stored');
+});
+
+test('audio clips are private, typed and share the object quota',async()=>{
+  const e=event('audio',{source:'microphone',values:{duration_seconds:60,peak_dbfs:-12.5}});
+  assert.equal((await uploadAudio(event('photo'))).status,422);
+  assert.equal((await uploadAudio(e,clip,'image/jpeg')).status,400);
+  assert.equal((await uploadAudio(e,photo)).status,422);
+  assert.equal((await uploadPhoto(e)).status,422);
+  const before=(await db.prepare('SELECT photo_bytes FROM usage WHERE id=1').first()).photo_bytes;
+  const stored=await uploadAudio(e);
+  assert.equal(stored.status,200,await stored.clone().text());
+  assert.deepEqual(await stored.json(),{event_id:e.event_id,status:'stored'});
+  assert.equal((await (await uploadAudio(e)).json()).status,'duplicate');
+  assert.equal((await db.prepare('SELECT photo_bytes FROM usage WHERE id=1').first()).photo_bytes,before+clip.length);
+  assert.equal((await request('/v1/audio/'+e.event_id)).status,401);
+  const session=await login();
+  const res=await request('/v1/audio/'+e.event_id,{headers:session});
+  assert.equal(res.status,200);
+  assert.equal(res.headers.get('Content-Type'),'audio/ogg');
+  assert.deepEqual(new Uint8Array(await res.arrayBuffer()),clip);
+  assert.equal((await request('/v1/photos/'+e.event_id,{headers:session})).status,404);
+  const list=await (await request('/v1/audio',{headers:session})).json();
+  assert.deepEqual(list.items.map(x=>x.event_id),[e.event_id]);
+  assert.equal(list.items[0].values.peak_dbfs,-12.5);
+  const latest=await (await request('/v1/latest',{headers:session})).json();
+  assert.ok(latest.items.some(x=>x.kind==='audio' && x.event_id===e.event_id));
+  assert.ok(await bucket.head('home/'+e.event_id+'.ogg'));
+  await db.prepare("INSERT INTO daily VALUES (?,'audio',1600) ON CONFLICT(day,kind) DO UPDATE SET count=1600")
+    .bind(Math.floor(Date.now()/1000/day)).run();
+  assert.equal((await uploadAudio(event('audio',{source:'microphone'}))).status,429);
+  await db.prepare("UPDATE daily SET count=1 WHERE kind='audio'").run();
+  await db.prepare('UPDATE events SET observed=? WHERE id=?').bind(Date.now()/1000-31*day,e.event_id).run();
+  assert.equal((await request('/__test_cleanup?now='+(Date.now()/1000+2*day))).status,200);
+  assert.equal(await db.prepare('SELECT * FROM events WHERE id=?').bind(e.event_id).first(),null);
+  assert.equal(await bucket.head('home/'+e.event_id+'.ogg'),null);
 });
