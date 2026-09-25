@@ -198,7 +198,7 @@ class Camera:
         self.config, self.spool = config, spool
         self.camera = config.get("camera", {})
         self.options = config.get("attention", {})
-        self.attention = motion.Attention(self.options.get("change_threshold", 0.10),
+        self.attention = motion.Attention(self.options.get("change_threshold", 0.06),
                                           self.options.get("calm_frames", 2))
         self.previous = None
         self.sound = config.get("audio", {})

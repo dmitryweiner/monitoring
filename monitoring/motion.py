@@ -48,7 +48,7 @@ def changed_fraction(previous, current, pixel_threshold=0.5):
 class Attention:
     """Raised attention starts at a significant change and ends after `calm` quiet frames."""
 
-    def __init__(self, threshold=0.10, calm=2):
+    def __init__(self, threshold=0.06, calm=2):
         self.threshold, self.calm = threshold, calm
         self.alert = False
         self.quiet = 0

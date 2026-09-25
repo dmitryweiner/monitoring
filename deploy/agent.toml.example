@@ -23,7 +23,7 @@ timeout_seconds = 30
 [attention]
 enabled = true
 interval_seconds = 60
-change_threshold = 0.10
+change_threshold = 0.06
 pixel_threshold = 0.5
 calm_frames = 2
 
