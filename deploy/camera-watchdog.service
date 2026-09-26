@@ -1,0 +1,26 @@
+[Unit]
+Description=Bring the USB camera back when it drops off the bus
+Documentation=file:/usr/local/sbin/camera-watchdog.sh
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/camera-watchdog.sh
+# A check that usually finds the camera should not write anything. systemd's own
+# "Starting"/"Finished" lines are info, so they are filtered out; the script's
+# own output is raised to notice and still reaches the journal.
+LogLevelMax=notice
+SyslogLevel=notice
+# A confirmation wait, a port power cycle and a rebind fit well inside this.
+TimeoutStartSec=120
+NoNewPrivileges=yes
+# strict leaves /sys writable; ProtectKernelTunables is left off because the
+# port and driver switches live there.
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateNetwork=yes
+RestrictSUIDSGID=yes
+RuntimeDirectory=camera-watchdog
+RuntimeDirectoryPreserve=yes
+MemoryMax=32M
+TasksMax=16

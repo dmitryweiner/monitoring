@@ -1,4 +1,5 @@
 import argparse
+import ctypes
 import json
 import logging
 import math
@@ -24,12 +25,22 @@ LOG = logging.getLogger(__name__)
 USER_AGENT = "monitoring-agent/1"
 
 
+class _Timex(ctypes.Structure):
+    _fields_ = [("modes", ctypes.c_uint), ("offset", ctypes.c_long), ("freq", ctypes.c_long),
+                ("maxerror", ctypes.c_long), ("esterror", ctypes.c_long), ("status", ctypes.c_int),
+                ("_rest", ctypes.c_byte * 256)]
+
+
 def clock_synchronized():
+    """The kernel check timedated makes for NTPSynchronized, without waking
+    timedated over D-Bus on every event and logging its start and stop."""
     try:
-        return subprocess.run(["timedatectl", "show", "-p", "NTPSynchronized", "--value"],
-                              capture_output=True, text=True, timeout=3, check=True).stdout.strip() == "yes"
-    except (OSError, subprocess.SubprocessError):
+        timex = _Timex()
+        if ctypes.CDLL(None, use_errno=True).adjtimex(ctypes.byref(timex)) < 0:
+            return False
+    except (OSError, AttributeError):
         return False
+    return timex.maxerror < 16_000_000
 
 
 def event(device_id, kind, source, values=None, status="ok", synchronized=None):

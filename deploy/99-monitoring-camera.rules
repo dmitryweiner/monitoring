@@ -1,0 +1,5 @@
+# Keep the USB camera (32e6:9221) out of USB autosuspend. The kernel put it to
+# sleep two seconds after every photo, and each drop-off seen so far came in the
+# second a photo began, that is, while it woke up: on 25 September at 23:52 the
+# port could not be enabled again and photos stopped until it was replugged.
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="32e6", ATTR{idProduct}=="9221", TEST=="power/control", ATTR{power/control}="on"

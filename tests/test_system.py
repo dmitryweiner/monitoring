@@ -444,3 +444,16 @@ def test_bmp280_source_reports_values_or_error(monkeypatch):
         item = next(read_sources(config))
         assert (item["status"], item["values"]) == ("error", {})
         assert len(calls) == tries
+
+
+def test_clock_synchronized_follows_kernel_maxerror(monkeypatch):
+    from monitoring import agent
+    assert isinstance(agent.clock_synchronized(), bool)
+    for maxerror, result, expected in ((202_500, 0, True), (16_000_000, 5, False), (0, -1, False)):
+
+        class Libc:
+            def adjtimex(self, pointer):
+                pointer._obj.maxerror = maxerror
+                return result
+        monkeypatch.setattr(agent.ctypes, "CDLL", lambda *args, **kwargs: Libc())
+        assert agent.clock_synchronized() is expected

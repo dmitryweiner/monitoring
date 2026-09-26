@@ -1,0 +1,13 @@
+[Unit]
+Description=Check every five minutes that the USB camera is still on the bus
+
+[Timer]
+OnBootSec=3min
+# Five minutes: a lost camera costs at most half a normal photo interval, and a
+# check that finds the camera writes nothing.
+OnUnitActiveSec=5min
+AccuracySec=30s
+Unit=camera-watchdog.service
+
+[Install]
+WantedBy=timers.target

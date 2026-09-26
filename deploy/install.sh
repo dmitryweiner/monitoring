@@ -22,10 +22,15 @@ if [ "$role" = agent ]; then
     getent group gpio >/dev/null || groupadd --system gpio
     getent group sensors >/dev/null || groupadd --system sensors
     install -m 0644 "$project_dir/deploy/99-monitoring-gpio.rules" \
-        "$project_dir/deploy/99-monitoring-i2c.rules" /etc/udev/rules.d/
+        "$project_dir/deploy/99-monitoring-i2c.rules" \
+        "$project_dir/deploy/99-monitoring-camera.rules" /etc/udev/rules.d/
     udevadm control --reload
     udevadm trigger --action=change --subsystem-match=gpio
     udevadm trigger --action=change --subsystem-match=i2c-dev
+    udevadm trigger --action=add --subsystem-match=usb --attr-match=idVendor=32e6
+    install -m 0755 "$project_dir/deploy/camera-watchdog.sh" /usr/local/sbin/
+    install -m 0644 "$project_dir/deploy/camera-watchdog.service" \
+        "$project_dir/deploy/camera-watchdog.timer" /etc/systemd/system/
     if [ ! -e /etc/monitoring/agent.toml ]; then
         install -m 0640 -g monitoring "$project_dir/deploy/agent.toml.example" /etc/monitoring/agent.toml
     fi
