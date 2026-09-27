@@ -12,18 +12,21 @@ reserve_bytes = 1073741824
 [camera]
 enabled = true
 device = "/dev/v4l/by-id/usb-Web_Camera_Web_Camera_202512181-video-index0"
-size = "1280x720"
+size = "1920x1080"
 input_format = "mjpeg"
 timeout_seconds = 30
 
-# Raised attention: a photo that differs from the previous one by more than
-# change_threshold (a share of pixels, brightness aside) switches photos to every
-# interval_seconds, which must divide the top-level interval_seconds; calm_frames
-# quiet photos in a row switch back. pixel_threshold is in standard deviations.
+# Raised attention: the camera takes a frame every interval_seconds, which must
+# divide the top-level interval_seconds, and compares it with the one before.
+# A frame that differs by more than change_threshold (a share of pixels,
+# brightness aside) raises attention, and every frame is sent until calm_frames
+# quiet ones in a row lower it. Otherwise a frame is sent only once the top-level
+# interval has passed since the last photo. pixel_threshold is in standard
+# deviations. With enabled = false the camera takes one photo per interval.
 [attention]
 enabled = true
 interval_seconds = 60
-change_threshold = 0.06
+change_threshold = 0.07
 pixel_threshold = 0.5
 calm_frames = 2
 

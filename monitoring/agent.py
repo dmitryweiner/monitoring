@@ -197,21 +197,25 @@ def periodic(stop, interval, callback, offset=0):
 
 
 class Camera:
-    """Photos at the normal pace, or every minute while the picture keeps changing.
+    """A frame every minute; photos at the normal pace, or every minute while the
+    picture keeps changing.
 
-    Each photo is compared with the one before it, brightness aside. A change above
-    the threshold raises attention; two quiet photos in a row lower it again. While
-    attention is raised the microphone records, and each minute that holds sound
-    above the noise floor is queued as an Ogg/Opus clip.
+    Each frame is compared with the one before it, brightness aside. A change above
+    the threshold raises attention, and from that frame on every one is queued; two
+    quiet frames in a row lower attention again. Otherwise a frame is queued only
+    once the normal interval has passed since the last photo, and the rest are
+    only compared. While attention is raised the microphone records, and each
+    minute that holds sound above the noise floor is queued as an Ogg/Opus clip.
     """
 
     def __init__(self, config, spool, listen=True):
         self.config, self.spool = config, spool
         self.camera = config.get("camera", {})
         self.options = config.get("attention", {})
-        self.attention = motion.Attention(self.options.get("change_threshold", 0.06),
+        self.attention = motion.Attention(self.options.get("change_threshold", 0.07),
                                           self.options.get("calm_frames", 2))
         self.previous = None
+        self.reported = None    # monotonic time of the last photo or camera error queued
         self.sound = config.get("audio", {})
         self.recorder = None
         if listen and self.options.get("enabled", True) and self.sound.get("enabled", True):
@@ -223,9 +227,15 @@ class Camera:
         return self.attention.alert
 
     def interval(self):
-        if self.alert:
+        """Time between frames; without comparison there is no reason to look more often."""
+        if self.options.get("enabled", True):
             return self.options.get("interval_seconds", 60)
         return self.config.get("interval_seconds", 600)
+
+    def due(self, now):
+        # Half a frame of slack: a slot starts a little late whenever a capture ran long.
+        return (self.reported is None or
+                now - self.reported >= self.config.get("interval_seconds", 600) - self.interval() / 2)
 
     def compare(self, jpeg):
         try:
@@ -238,26 +248,34 @@ class Camera:
             return None
         return motion.changed_fraction(previous, current, self.options.get("pixel_threshold", 0.5))
 
-    def shot(self):
+    def shot(self, now=None):
         if not self.camera.get("enabled", True):
             return
+        now = time.monotonic() if now is None else now
         metadata = event(self.config["device_id"], "photo", "camera")
+        was_alert = self.alert
         try:
             jpeg = capture(self.config)
         except (OSError, ValueError, subprocess.SubprocessError):
-            self.spool.enqueue(event(self.config["device_id"], "measurement", "camera", status="error"))
-            LOG.warning("camera unavailable; measurements continue")
+            jpeg = None
             # A silent camera is no evidence of change: let raised attention run out.
             self.attention.observe(None)
         else:
             fraction = self.compare(jpeg) if self.options.get("enabled", True) else None
-            was_alert = self.alert
             self.attention.observe(fraction)
             if fraction is not None:
                 metadata["values"]["changed_percent"] = round(fraction * 100, 1)
-            # The photo that raised attention carries the flag, and so does the last one of it.
-            metadata["values"]["attention"] = int(self.alert or was_alert)
-            self.spool.enqueue(metadata, jpeg)
+        # The photo that raised attention is queued, and so is every one up to the last
+        # of it. A failed capture is reported only where a photo was due, so a camera
+        # gone for hours costs one error every normal interval, as before.
+        if self.alert or was_alert or self.due(now):
+            self.reported = now
+            if jpeg is None:
+                self.spool.enqueue(event(self.config["device_id"], "measurement", "camera", status="error"))
+                LOG.warning("camera unavailable; measurements continue")
+            else:
+                metadata["values"]["attention"] = int(self.alert or was_alert)
+                self.spool.enqueue(metadata, jpeg)
         self.listen()
 
     def listen(self):
@@ -306,9 +324,9 @@ class Camera:
 
 
 def camera_loop(stop, camera, offset):
-    """Photos on slots `offset` + k·step from one fixed start.
+    """Frames on slots `offset` + k·step from one fixed start.
 
-    The attention interval divides the normal one, so every slot keeps the same
+    The frame interval divides the normal one, so every slot keeps the same
     distance from the sensor reads at the start of each measurement cycle.
     """
     due = time.monotonic() + offset

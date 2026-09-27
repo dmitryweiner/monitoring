@@ -88,37 +88,62 @@ class FakeRecorder:
         return self.heard
 
 
-def test_camera_speeds_up_records_and_calms_down(tmp_path, monkeypatch):
+def test_camera_looks_every_minute_and_sends_what_changes(tmp_path, monkeypatch):
     spool = Spool(tmp_path, reserve_bytes=0)
     config = {"device_id": "home", "interval_seconds": 600, "camera": {"device": "x"}}
     camera = Camera(config, spool)
     camera.recorder = recorder = FakeRecorder()
-    frames = iter([scene(), scene(brightness=0.6), scene(intruder=True), scene(intruder=True),
-                   scene(intruder=True)])
+    frames = iter([scene(), scene(brightness=0.6)] + [scene()] * 9 + [scene(intruder=True)] * 13)
     monkeypatch.setattr(agent, "capture", lambda config: next(frames))
+    minute, late = iter(range(0, 3600, 60)), random.Random(2)
 
-    camera.shot()
-    camera.shot()                   # darker, same room
-    assert camera.interval() == 600 and not recorder.running
-    camera.shot()                   # someone came in
-    assert camera.interval() == 60 and recorder.running
+    def shot():
+        camera.shot(next(minute) + late.uniform(0, 2))      # slots start a little late
+
+    assert camera.interval() == 60
+    shot()                          # 0:00, the first frame goes out
+    for _ in range(9):
+        shot()                      # darker, then the same room: compared, not sent
+    assert spool.status()["queued"] == 1 and not recorder.running
+    shot()                          # 10:00, the normal photo
+    shot()                          # 11:00, someone came in
+    assert recorder.running
     camera.clip_started -= 60
     recorder.heard = pcm(-20)
-    camera.shot()                   # sitting still, talking: first quiet frame
-    assert camera.interval() == 60 and recorder.running
+    shot()                          # 12:00, sitting still, talking: first quiet frame
+    assert recorder.running
     recorder.heard = pcm()
-    camera.shot()                   # still, silent: second quiet frame, back to normal
-    assert camera.interval() == 600 and not recorder.running
+    shot()                          # 13:00, still, silent: second quiet frame, back to normal
+    assert not recorder.running
+    for _ in range(9):
+        shot()                      # 14:00-22:00: compared, not sent
+    assert spool.status()["queued"] == 6
+    shot()                          # 23:00, ten minutes after the last photo
 
     photos = [e for e, _ in spool.batch("photo", 10)]
-    assert [p["values"].get("attention") for p in photos] == [0, 0, 1, 1, 1]
+    assert [p["values"]["attention"] for p in photos] == [0, 0, 1, 1, 1, 0]
     assert "changed_percent" not in photos[0]["values"]
-    assert photos[1]["values"]["changed_percent"] < 10 < photos[2]["values"]["changed_percent"]
+    assert photos[1]["values"]["changed_percent"] < 7 < photos[2]["values"]["changed_percent"]
+    assert [p["values"]["changed_percent"] for p in photos[3:]] == [0, 0, 0]
     clips = spool.batch("audio", 10)
     assert len(clips) == 1          # only the minute with sound above the floor
     metadata, clip = clips[0]
     assert metadata["source"] == "microphone" and clip.startswith(b"OggS")
     assert metadata["values"]["peak_dbfs"] > -25 and metadata["values"]["duration_seconds"] == 3.0
+
+
+def test_missing_camera_is_reported_at_the_normal_pace(tmp_path, monkeypatch):
+    spool = Spool(tmp_path, reserve_bytes=0)
+    camera = Camera({"device_id": "home", "interval_seconds": 600, "camera": {"device": "x"}},
+                    spool, listen=False)
+
+    def gone(config):
+        raise OSError("no camera")
+    monkeypatch.setattr(agent, "capture", gone)
+    for minute in range(21):
+        camera.shot(minute * 60)
+    errors = [e for e, _ in spool.batch("measurement", 10)]
+    assert [(e["source"], e["status"]) for e in errors] == [("camera", "error")] * 3
 
 
 def test_camera_loop_keeps_slots_and_skips_missed_ones():
