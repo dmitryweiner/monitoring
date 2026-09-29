@@ -22,7 +22,11 @@ PORT=${CAMERA_PORT:-/sys/bus/usb/devices/1-0:1.0/usb1-port1}
 CONTROLLER=${CAMERA_CONTROLLER:-12.usbc2}
 DRIVER=${CAMERA_DRIVER:-/sys/bus/platform/drivers/sunxi-plat-dwc3}
 CONFIRM_SECONDS=${CAMERA_CONFIRM:-20}
-MIN_INTERVAL=${CAMERA_MIN_INTERVAL:-1800}   # a camera unplugged on purpose is retried this rarely
+# After a failed attempt, wait this long before the next one. Thirty minutes
+# kept the camera dead from 20:25 to 20:56 on 28 September, although the
+# attempt at 20:56 brought it back; ten minutes still keeps a camera unplugged
+# on purpose from being reset on every run.
+MIN_INTERVAL=${CAMERA_MIN_INTERVAL:-600}
 STATE=/run/camera-watchdog
 DRY_RUN=${WATCHDOG_DRY_RUN:-0}
 
@@ -54,11 +58,15 @@ controller_is_empty() {
 
 mkdir -p "$STATE"
 
-present && exit 0
+# The wait applies only after a failure: a camera that comes back and drops
+# again is retried at once.
+present && { rm -f "$STATE/last-attempt"; exit 0; }
 
 now=$(date +%s)
 last=$(cat "$STATE/last-attempt" 2>/dev/null || echo 0)
-[ $((now - last)) -lt "$MIN_INTERVAL" ] && exit 0
+# A minute of slack: the timer runs every five minutes give or take 30 s, and a
+# run that lands a few seconds short would otherwise put the retry off by five.
+[ $((now - last)) -lt $((MIN_INTERVAL - 60)) ] && exit 0
 
 # A camera being replugged is missing for a second or two; do not fight it.
 sleep "$CONFIRM_SECONDS"
