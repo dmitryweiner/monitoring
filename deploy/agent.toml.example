@@ -11,7 +11,7 @@ reserve_bytes = 1073741824
 
 [camera]
 enabled = true
-device = "/dev/v4l/by-id/usb-Web_Camera_Web_Camera_202512181-video-index0"
+device = "/dev/v4l/by-id/usb-Sonix_Technology_Co.__Ltd._UGREEN_Camera_2K_SN0001-video-index0"
 size = "1920x1080"
 input_format = "mjpeg"
 timeout_seconds = 30
@@ -31,12 +31,14 @@ pixel_threshold = 0.5
 calm_frames = 2
 
 # While attention is raised the microphone records; each minute holding at least
-# min_windows 100 ms windows above threshold_dbfs is sent as Ogg/Opus. The camera
-# microphone hisses at about -42.5 dBFS in a quiet room. The board's own codec is
-# hw:CARD=sndi2s4,DEV=0, but it read -80 dBFS: its analogue input looks unconnected.
+# min_windows 100 ms windows above threshold_dbfs is sent as Ogg/Opus. The first
+# camera's microphone hissed at about -42.5 dBFS in a quiet room; the UGREEN one is
+# not measured yet. It is stereo only, so plughw converts it to mono. The board's
+# own codec is hw:CARD=sndi2s4,DEV=0, but it read -80 dBFS: its analogue input
+# looks unconnected.
 [audio]
 enabled = true
-device = "hw:CARD=Camera,DEV=0"
+device = "plughw:CARD=U2K,DEV=0"
 threshold_dbfs = -30.0
 min_windows = 3
 bitrate = "16k"

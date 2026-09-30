@@ -27,7 +27,7 @@ if [ "$role" = agent ]; then
     udevadm control --reload
     udevadm trigger --action=change --subsystem-match=gpio
     udevadm trigger --action=change --subsystem-match=i2c-dev
-    udevadm trigger --action=add --subsystem-match=usb --attr-match=idVendor=32e6
+    udevadm trigger --action=add --subsystem-match=usb --attr-match=idVendor=0c45
     install -m 0755 "$project_dir/deploy/camera-watchdog.sh" /usr/local/sbin/
     install -m 0644 "$project_dir/deploy/camera-watchdog.service" \
         "$project_dir/deploy/camera-watchdog.timer" /etc/systemd/system/

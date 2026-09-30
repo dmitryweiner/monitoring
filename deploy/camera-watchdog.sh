@@ -15,7 +15,7 @@
 set -uo pipefail
 test "$(id -u)" = 0 || { echo 'Run as root'; exit 1; }
 
-CAMERA_ID=${CAMERA_ID:-32e6:9221}
+CAMERA_ID=${CAMERA_ID:-0c45:6370}   # UGREEN Camera 2K since 30 September
 # The USB 3 socket: the only port of the xHCI root hub, behind the sunxi DWC3
 # glue device 12.usbc2, which also holds the usb1-vbus regulator.
 PORT=${CAMERA_PORT:-/sys/bus/usb/devices/1-0:1.0/usb1-port1}

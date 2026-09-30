@@ -219,7 +219,7 @@ class Camera:
         self.sound = config.get("audio", {})
         self.recorder = None
         if listen and self.options.get("enabled", True) and self.sound.get("enabled", True):
-            self.recorder = audio.Recorder(self.sound.get("device", "hw:CARD=Camera,DEV=0"))
+            self.recorder = audio.Recorder(self.sound.get("device", "plughw:CARD=U2K,DEV=0"))
         self.clip_started = None
 
     @property
